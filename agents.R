@@ -1,5 +1,5 @@
 
-rw_vs_rw = function(ntrials,alpha1_l,alpha1_w,alpha2_l,alpha2_w,bias1, bias2){
+rw_vs_rw = function(ntrials,alpha1_l,alpha1_w,alpha2_l,alpha2_w,bias1, bias2, incentive1, incentive2){
   
   
   ntrials = ntrials
@@ -34,18 +34,28 @@ rw_vs_rw = function(ntrials,alpha1_l,alpha1_w,alpha2_l,alpha2_w,bias1, bias2){
                                 alpha_w = alpha1_w,
                                 alpha_l = alpha1_l,
                                 feedback = feedback_rw1[i-1])
-    
+    if(incentive1 == 0){
     rw1[i] = rbinom(1,1,expectation1[i])
-    
+    }else{
+      rw1[i] = rbinom(1,1,(1-expectation1[i]))
+      }
     expectation2[i] = rw_agent2(previous_expected = expectation2[i-1],
                                 previous_them = rw1[i-1],
                                 alpha_w = alpha2_w,
                                 alpha_l = alpha2_l,
                                 feedback = feedback_rw2[i-1])
     
+    if(incentive2 == 0){
     rw2[i] = rbinom(1,1,expectation2[i])
     #this overwrites the second agents decision as he would otherwise play to match which he shouldn't he tries to not match.
     rw2[i] = 1-rw2[i]
+    }else{
+      rw2[i] = rbinom(1,1,(1-expectation2[i]))
+      #this overwrites the second agents decision as he would otherwise play to match which he shouldn't he tries to not match.
+      rw2[i] = 1-rw2[i]
+    }
+    
+    
     
     if(rw1[i] == rw2[i]){
       feedback_rw1[i] = 1
@@ -58,7 +68,7 @@ rw_vs_rw = function(ntrials,alpha1_l,alpha1_w,alpha2_l,alpha2_w,bias1, bias2){
     
   }
   
-  return(list(rw1 = rw1, rw2 = rw2, feedback_rw1 = feedback_rw1,feedback_rw2 = feedback_rw2))
+  return(list(rw1 = rw1, rw2 = rw2, feedback_rw1 = feedback_rw1,feedback_rw2 = feedback_rw2, expectation1 = expectation1, expectation2 = expectation2))
   
 }
 
@@ -92,10 +102,47 @@ plot_cumwin = function(df){
   
   df = df %>% mutate(trials = 1:nrow(df)) %>%  mutate(cumrw1 = cumsum(feedback_rw1)/seq_along(feedback_rw1),
                                                    cumrw2 = cumsum(feedback_rw2)/seq_along(feedback_rw2))
+  plot = df %>% ggplot()+theme_classic()+geom_line(color = "red",aes(trials, cumrw1))+geom_line(color = "blue",aes(trials, cumrw2))+xlab("Trial")+ylab("Procent of wins")+
+    ggtitle("Plot of Procent of wins of matcher (red) and non-matcher (blue)")
+  
+  return(list(plot = plot, data = df))
   
   
-  return(df %>% ggplot()+theme_classic()+geom_line(color = "red",aes(trials, cumrw1))+geom_line(color = "blue",aes(trials, cumrw2))+xlab("Trial")+ylab("Procent of wins")+
-    ggtitle("Plot of Procent of wins of matcher (red) and non-matcher (blue)"))
+}
+
+
+
+
+rw_vs_rw_times = function(times, ntrials,alpha1_l,alpha1_w,alpha2_l,alpha2_w,bias1, bias2, incentive1, incentive2){
+  
+  agg = data.frame()
+  for (i in 1:times){
+    
+    df = rw_vs_rw(ntrials = ntrials,
+             alpha1_l = alpha1_l,
+             alpha1_w = alpha1_w,
+             alpha2_l = alpha2_l,
+             alpha2_w = alpha2_w,
+             bias1 = bias1,
+             bias2 = bias2,
+             incentive1 = incentive1,
+             incentive2 = incentive2)
+    
+    df = data.frame(df)
+    
+    cumm = plot_cumwin(df)    
+    data = cumm$data
+    data$trial = 1:ntrials
+    agg = rbind(agg,data)
+    
+    
+  }
+  
+  agg = agg %>% group_by(trials) %>% summarize(n = n(),meanrw1 = mean(cumrw1),meanrw2 = mean(cumrw2), serw1 = sd(cumrw1)/sqrt(n),serw2 = sd(cumrw2)/sqrt(n))
+  
+  return(agg)
+  
+  
   
   
 }
