@@ -102,7 +102,13 @@ plot_cumwin = function(df){
   
   df = df %>% mutate(trials = 1:nrow(df)) %>%  mutate(cumrw1 = cumsum(feedback_rw1)/seq_along(feedback_rw1),
                                                    cumrw2 = cumsum(feedback_rw2)/seq_along(feedback_rw2))
-  plot = df %>% ggplot()+theme_classic()+geom_line(color = "red",aes(trials, cumrw1))+geom_line(color = "blue",aes(trials, cumrw2))+xlab("Trial")+ylab("Procent of wins")+
+  
+  plot = df %>% ggplot()+
+    theme_classic()+
+    geom_line(color = "red",aes(trials, cumrw1))+
+    geom_line(color = "blue",aes(trials, cumrw2))+
+    xlab("Trial")+
+    ylab("Procent of wins")+
     ggtitle("Plot of Procent of wins of matcher (red) and non-matcher (blue)")
   
   return(list(plot = plot, data = df))
@@ -138,11 +144,113 @@ rw_vs_rw_times = function(times, ntrials,alpha1_l,alpha1_w,alpha2_l,alpha2_w,bia
     
   }
   
-  agg = agg %>% group_by(trials) %>% summarize(n = n(),meanrw1 = mean(cumrw1),meanrw2 = mean(cumrw2), serw1 = sd(cumrw1)/sqrt(n),serw2 = sd(cumrw2)/sqrt(n))
+  agg = agg %>% 
+    group_by(trials) %>% 
+    summarize(n = n(),meanrw1 = mean(cumrw1),meanrw2 = mean(cumrw2), serw1 = sd(cumrw1)/sqrt(n),serw2 = sd(cumrw2)/sqrt(n))
   
   return(agg)
   
+}
+
+
+plot_agg = function(aggregate_data){
+  plot_agg = aggregate_data %>% ggplot()+theme_classic()+
+    geom_line(color = "red",aes(trials, meanrw1))+
+    geom_line(color = "blue",aes(trials, meanrw2))+
+    xlab("Trial")+
+    ylab("Procent of wins")+
+    ggtitle("Plot of Procent of wins of matcher (red) and non-matcher (blue)")+
+    geom_ribbon(aes(x = trials, ymin = meanrw1-2*serw1, ymax = meanrw1+2*serw1), fill = "red", alpha = 0.2)+
+    geom_ribbon(aes(x = trials, ymin = meanrw2-2*serw2, ymax = meanrw2+2*serw2), fill = "blue", alpha = 0.2)+theme(text = element_text(size = 20))
   
+  return(plot_agg)
+}
+
+
+
+
+
+# MixRLAgent uses a strategy that combines two strategies together 
+# on the first half trials and second half trials respectively
+
+MixRLAgent_f <- function(previous_expectation, previous_other, feedback, alpha1, alpha2,i) {
+  #probmodel = rcat(1,c(p1,p2,p3,p4)) not sure if this can be applied
   
+  if (i < 60){
+    expectation =  previous_expectation + alpha1 * (previous_other - previous_expectation)
+  }else{
+    expectation =  previous_expectation + alpha2 * (previous_other - previous_expectation)
+  }
+  
+  return(expectation)
   
 }
+
+RL_vs_MIX = function(ntrials, alpha_w, alpha_l, alpha1, alpha2, bias_self, bias_other){
+  # self refers to the matcher, other refers to the opponent
+  self = rep(NA, ntrials) # matcher
+  other = rep(NA, ntrials) # opponent
+  expectation_self = rep(NA, ntrials)
+  expectation_other = rep(NA, ntrials)
+  feedback_self = rep(NA, ntrials)
+  feedback_other = rep(NA, ntrials)
+  
+  expectation_self[1] = bias_self
+  expectation_other[1] = bias_other
+  self[1] = rbinom(1,1,expectation_self[1])
+  other[1] = rbinom(1,1,expectation_other[1])
+  
+  if (self[1] == other[1]){
+    feedback_self[1] = 1
+    feedback_other[1] = 0} else{
+      feedback_self[1] = 0
+      feedback_other[1] = 1
+    }
+  
+  for (i in 2:ntrials){
+    
+    expectation_self[i] = MixRLAgent_f(alpha1 = alpha1, 
+                                       alpha2 = alpha2, 
+                                       feedback = feedback_self[i-1],
+                                       previous_expectation = expectation_self[i-1],
+                                       previous_other = other[i-1],
+                                       i = i)
+    
+    self[i] = rbinom(1,1,expectation_self[i])
+    
+    
+    expectation_other[i] = RLAgent2_f(alpha_w = alpha_w,
+                                      alpha_l = alpha_l,
+                                      feedback = feedback_other[i-1],
+                                      previous_expectation = expectation_other[i-1],
+                                      previous_other = self[i-1])
+    
+    other[i] = rbinom(1,1,expectation_other[i])
+    other[i] = 1 - other[i]
+    
+    if (self[i] == other[i]){
+      feedback_self[i] = 1
+      feedback_other[i] = 0} else{
+        feedback_self[i] = 0
+        feedback_other[i] = 1
+      }
+  }
+  
+  return(list(self = self, other = other, feedback_self = feedback_self, feedback_other = feedback_other))
+}
+
+
+
+RLAgent2_f <- function(previous_expectation, previous_other, feedback, alpha_w, alpha_l){
+  
+  if (feedback == 1){
+    expectation =  previous_expectation + alpha_w * (previous_other - previous_expectation)
+  } else {
+    expectation =  previous_expectation + alpha_l * (previous_other - previous_expectation)
+  }
+  
+  return(expectation)
+}
+
+
+
