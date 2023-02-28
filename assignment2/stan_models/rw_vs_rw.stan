@@ -11,8 +11,7 @@ data {
 // The parameters accepted by the model. Our model
 // accepts two parameters 'mu' and 'sigma'.
 parameters {
-  real <lower = 0, upper = 1> bias_1;
-  real <lower = 0, upper = 1> bias_2;
+  
   
   real <lower = 0, upper = 1> alpha_1;
   real <lower = 0, upper = 1> alpha_2;
@@ -25,13 +24,12 @@ transformed parameters{
   array[n] real <lower = 0, upper = 1> belief_2;
   
 
-  belief_1[1] = bias_1;
-  belief_2[1] = bias_2;
+  belief_1[1] = 0.5;
+  belief_2[1] = 0.5;
   
   for (i in 2:n){
-    belief_1[i] = belief_1[i-1]+alpha_1*(fb_rw1[i-1]-belief_1[i-1]);
-    belief_2[i] = belief_2[i-1]+alpha_2*(fb_rw2[i-1]-belief_2[i-1]);
-    
+    belief_1[i] = belief_1[i-1]+alpha_1*(rw2[i-1]-belief_1[i-1]);
+    belief_2[i] = belief_2[i-1]+alpha_2*(rw1[i-1]-belief_2[i-1]);
   }
 }
 
@@ -39,10 +37,10 @@ transformed parameters{
 // 'y' to be normally distributed with mean 'mu'
 // and standard deviation 'sigma'.
 model {
-  target +=beta_lpdf(bias_1 | 1,1);
-  target +=beta_lpdf(bias_2 | 1,1);
+  
   target +=beta_lpdf(alpha_1 | 1,1);
   target +=beta_lpdf(alpha_2 | 1,1);
+  
   
   
   

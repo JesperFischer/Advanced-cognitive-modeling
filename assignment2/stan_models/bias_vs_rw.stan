@@ -29,9 +29,8 @@ transformed parameters{
   belief_2[1] = bias_2;
   
   for (i in 2:n){
-    belief_1[i] = belief_1[i-1]+alpha_1*(fb_rw1[i-1]-belief_1[i-1]);
-    belief_2[i] = belief_2[i-1]+alpha_2*(fb_rw2[i-1]-belief_2[i-1]);
-    
+    belief_1[i] = belief_1[i-1]+alpha_1*(rw2[i-1]-belief_1[i-1]);
+    belief_2[i] = bias_2;
   }
 }
 
@@ -42,14 +41,13 @@ model {
   target +=beta_lpdf(bias_1 | 1,1);
   target +=beta_lpdf(bias_2 | 1,1);
   target +=beta_lpdf(alpha_1 | 1,1);
-  target +=beta_lpdf(alpha_2 | 1,1);
   
   
   
   for (i in 1:n){
   
     target +=bernoulli_lpmf(rw1[i] | belief_1[i]);
-    target +=bernoulli_lpmf(rw2[i] | (1-belief_2[i]));
+    target +=bernoulli_lpmf(rw2[i] | belief_2[i]);
     
   }
   

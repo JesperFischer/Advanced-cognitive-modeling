@@ -38,21 +38,20 @@ rw_vs_rw = function(ntrials,alpha1_l,alpha1_w,alpha2_l,alpha2_w,bias1, bias2, in
     rw1[i] = rbinom(1,1,expectation1[i])
     }else{
       rw1[i] = rbinom(1,1,(1-expectation1[i]))
-      }
+    }
     expectation2[i] = rw_agent2(previous_expected = expectation2[i-1],
                                 previous_them = rw1[i-1],
                                 alpha_w = alpha2_w,
                                 alpha_l = alpha2_l,
                                 feedback = feedback_rw2[i-1])
     
+    
     if(incentive2 == 0){
-    rw2[i] = rbinom(1,1,expectation2[i])
+    rw2[i] = rbinom(1,1,(1-expectation2[i]))
     #this overwrites the second agents decision as he would otherwise play to match which he shouldn't he tries to not match.
-    rw2[i] = 1-rw2[i]
     }else{
-      rw2[i] = rbinom(1,1,(1-expectation2[i]))
+      rw2[i] = rbinom(1,1,(1-(1-expectation2[i])))
       #this overwrites the second agents decision as he would otherwise play to match which he shouldn't he tries to not match.
-      rw2[i] = 1-rw2[i]
     }
     
     
@@ -251,6 +250,87 @@ RLAgent2_f <- function(previous_expectation, previous_other, feedback, alpha_w, 
   
   return(expectation)
 }
+
+
+
+
+
+
+
+zib = function(mean, sigma){
+  kappa = 1/sigma
+  
+  alpha = mean*(kappa-1)
+  beta = (kappa-1)*(1-mean)
+  
+  return(list(alpha = alpha, beta = beta))
+}
+
+
+
+
+
+
+rw_vs_rw_hier = function(times, ntrials,alpha1_l_mu,alpha1_l_sd,alpha1_w_mu,alpha1_w_sd,alpha2_l_mu,alpha2_l_sd,alpha2_w_mu,alpha2_w_sd,bias1, bias2, incentive1, incentive2){
+  #making participants from a hiercial model:
+  
+  alpha1_l = rbeta(times, zib(alpha1_l_mu, alpha1_l_sd)$alpha,zib(alpha1_l_mu, alpha1_l_sd)$beta)
+  alpha1_w = rbeta(times, zib(alpha1_w_mu, alpha1_w_sd)$alpha,zib(alpha1_w_mu, alpha1_w_sd)$beta)
+  
+  alpha2_l = rbeta(times, zib(alpha2_l_mu, alpha2_l_sd)$alpha,zib(alpha2_l_mu, alpha2_l_sd)$beta)
+  alpha2_w = rbeta(times, zib(alpha2_w_mu, alpha2_w_sd)$alpha,zib(alpha2_w_mu, alpha2_w_sd)$beta)
+  
+  true = data.frame(pair = 1:times, alpha1_l = alpha1_l, alpha1_w = alpha1_w, alpha2_l = alpha2_l, alpha2_w = alpha2_w, bias1 = bias1, bias2 = bias2, incentive1 = incentive1, incentive2 = incentive2)
+  
+  agg = data.frame()
+  rw1 = data.frame(1:ntrials)
+  rw2 = data.frame(1:ntrials)
+  rw1_fb = data.frame(1:ntrials)
+  rw2_fb = data.frame(1:ntrials)
+  
+  for (i in 1:times){
+    
+    df = rw_vs_rw(ntrials = ntrials,
+                  alpha1_l = alpha1_l[i],
+                  alpha1_w = alpha1_w[i],
+                  alpha2_l = alpha2_l[i],
+                  alpha2_w = alpha2_w[i],
+                  bias1 = bias1,
+                  bias2 = bias2,
+                  incentive1 = incentive1,
+                  incentive2 = incentive2)
+    
+    data = data.frame(df)
+    
+    
+    data$pair = i
+    agg = rbind(agg,data)
+    rw1 = cbind(rw1, data$rw1)
+    rw2 = cbind(rw2, data$rw1)
+    rw1_fb = cbind(rw1_fb, data$feedback_rw1)
+    rw2_fb = cbind(rw2_fb, data$feedback_rw2)
+    
+    
+  }
+  
+  rw1[,1] = NULL
+  colnames(rw1) = 1:times
+  rw2[,1] = NULL
+  colnames(rw2) = 1:times
+  rw1_fb[,1] = NULL
+  colnames(rw1_fb) = 1:times
+  rw2_fb[,1] = NULL
+  colnames(rw2_fb) = 1:times
+  
+  
+  return(list(triallevel = agg, pairlevel = true, rw1 = rw1, rw2 = rw2, rw1_fb = rw1_fb, rw2_fb = rw2_fb))
+  
+}
+
+
+
+
+
 
 
 

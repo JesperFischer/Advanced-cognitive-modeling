@@ -23,7 +23,7 @@ model {
   for (i in 1:n){
   
     target +=bernoulli_lpmf(rw1[i] |bias_1);
-    target +=bernoulli_lpmf(rw2[i] |bias_2);
+    target +=bernoulli_lpmf(rw2[i] |(1-bias_2));
     
   
   }
