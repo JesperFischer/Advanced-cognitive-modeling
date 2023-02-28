@@ -47,7 +47,7 @@ model {
   for (i in 1:n){
   
     target +=bernoulli_lpmf(rw1[i] | belief_1[i]);
-    target +=bernoulli_lpmf(rw2[i] | belief_2[i]);
+    target +=bernoulli_lpmf(rw2[i] | (1-belief_2[i]));
     
   }
   
