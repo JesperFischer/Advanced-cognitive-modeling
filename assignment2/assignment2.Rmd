@@ -96,6 +96,7 @@ fit
 
 
 ```{r}
+#priors are uniform (0-1S)
 source("~/Advanced-cognitive-modeling/stan_helpers.R")
 library(ggdist)
 #parameter recovery
@@ -111,7 +112,7 @@ pr$plot
 
 
 ```{r}
-#RB vs RW
+#Random bias vs Rescorla wagner fit one participant
 source("~/Advanced-cognitive-modeling/agents.R")
 
 #different parameter settings for the game and agents:
@@ -169,7 +170,7 @@ df = data.frame(df)
 #lets fit in stan:
 
 setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/bias_vs_rw.stan"
+filemodel = "stan_models/rw_vs_rw.stan"
 
 mod = cmdstan_model(filemodel)
 
@@ -197,6 +198,7 @@ mcmc_hist(fit$draws("alpha_2"))
 
 
 ```{r}
+#parameter recovery of rescorla wagner vs rescorla wagner
 source("~/Advanced-cognitive-modeling/stan_helpers.R")
 library(ggdist)
 #parameter recovery
@@ -314,11 +316,10 @@ pr$plot
 
 
 ```{r}
+#multilevel_model first see that simulation work
 
 library(ggtext)
-#multilevel_model
 
-#Plot1 (vs random bias)
 #different parameter settings for the game and agents:
 #ntrials the number of times the agents play the game
 ntrials = 120
@@ -372,10 +373,6 @@ pairwise = agg$pairlevel
 trialevel = agg$triallevel
 
 
-setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/rw_vs_rw_hier.stan"
-
-mod = cmdstan_model(filemodel)
 
 trialevel$pair = as.factor(trialevel$pair)
 trialevel$rw1 = as.factor(trialevel$rw1)
@@ -393,6 +390,69 @@ trialevel %>% mutate(x = rep(1:120,5)) %>%
 
 
 ```
+
+
+```{r}
+#then we fit stan model first simply bias vs bais:
+
+source("~/Advanced-cognitive-modeling/agents.R")
+
+
+#different parameter settings for the game and agents:
+#ntrials the number of times the agents play the game
+ntrials = 120
+#alpha1_l is the learning rate for the first agent (matcher) when losing
+alpha1_l_mu = 0.5
+alpha1_l_sd = 0.1
+
+alpha1_w_mu = 0.5
+alpha1_w_sd = 0.1
+
+
+#alpha2_l is the learning rate for the first agent (non-matcher) when losing
+alpha2_l_mu = 0.4
+alpha2_l_sd = 0.1
+
+
+
+alpha2_w_mu = 0.4
+alpha2_w_sd = 0.1
+
+#bias1 is the bias of the first participant to answer 1. That is if it is 1 then agent 1 will choose 1 on the first trial, if 0.5 he picks at random
+bias1 = 0.5
+#bias 2 is what bias1 is for agent2
+bias2 = 0.5
+
+#the incentive of the first agent do you play after your belief (0) or do you choose the oppisite of your belief (1)
+incentive1 = 0
+#the incentive of the second agent do you play after your belief (0) or do you choose the oppisite of your belief (1)
+incentive2 = 0
+
+#make the agents play 100 times and plot it (included)
+subjects = 5
+
+
+data = list(rw1 = as.matrix(agg$rw1), rw2 = as.matrix(agg$rw2), fb_rw1 = as.matrix(agg$rw1_fb), fb_rw2 = as.matrix(agg$rw2_fb), trials = nrow(agg$rw1), subjects = ncol(agg$rw1))
+
+setwd("~/Advanced-cognitive-modeling/assignment2")
+filemodel = "stan_models/bias_vs_bias_hier.stan"
+
+mod = cmdstan_model(filemodel)
+
+
+fit <- mod$sample(
+  data = data, 
+  seed = 123, 
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500
+)
+
+
+
+
+```
+
 
 
 ```{r}
