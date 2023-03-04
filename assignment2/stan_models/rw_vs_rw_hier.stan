@@ -43,8 +43,8 @@ transformed parameters{
     belief_2[1,s] = bias_2[s];
       
     for (t in 2:trials){
-        belief_1[t,s] = belief_1[t-1,s]+alpha_1[s]*(rw2[t-1,s]-belief_1[t-1,s]);
-        belief_2[t,s] = belief_2[t-1,s]+alpha_2[s]*(rw1[t-1,s]-belief_2[t-1,s]);
+      belief_1[t,s] = belief_1[t-1,s]+alpha_1[s]*(rw2[t-1,s]-belief_1[t-1,s]);
+      belief_2[t,s] = belief_2[t-1,s]+alpha_2[s]*(rw1[t-1,s]-belief_2[t-1,s]);
   }
 }
 }
@@ -65,9 +65,8 @@ model {
     
   
   for (s in 1:subjects){
-    target +=beta_lpdf(bias_1[s] | bias_1_mu,bias_1_sd);
-    target +=beta_lpdf(bias_2[s] | bias_2_mu,bias_2_sd);
-    
+    target +=beta_lpdf(bias_1[s] | bias_1_mu*((1/bias_1_sd)-1),((1/bias_1_sd)-1)*(1-bias_1_mu));
+    target +=beta_lpdf(bias_2[s] | bias_2_mu*((1/bias_2_sd)-1),((1/bias_2_sd)-1)*(1-bias_2_mu));
     
     target +=beta_lpdf(alpha_1[s] | alpha_1_mu*((1/alpha_1_sd)-1),((1/alpha_1_sd)-1)*(1-alpha_1_mu));
     target +=beta_lpdf(alpha_2[s] | alpha_2_mu*((1/alpha_2_sd)-1),((1/alpha_2_sd)-1)*(1-alpha_2_mu));

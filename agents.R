@@ -271,7 +271,7 @@ zib = function(mean, sigma){
 
 
 
-rw_vs_rw_hier = function(subjects, ntrials,alpha1_l_mu,alpha1_l_sd,alpha1_w_mu,alpha1_w_sd,alpha2_l_mu,alpha2_l_sd,alpha2_w_mu,alpha2_w_sd,bias1, bias2, incentive1, incentive2){
+rw_vs_rw_hier = function(subjects, ntrials,alpha1_l_mu,alpha1_l_sd,alpha1_w_mu,alpha1_w_sd,alpha2_l_mu,alpha2_l_sd,alpha2_w_mu,alpha2_w_sd,bias1_mu,bias1_sd, bias2_mu,bias2_sd, incentive1, incentive2){
   #making participants from a hiercial model:
   
   alpha1_l = rbeta(subjects, zib(alpha1_l_mu, alpha1_l_sd)$alpha,zib(alpha1_l_mu, alpha1_l_sd)$beta)
@@ -280,7 +280,15 @@ rw_vs_rw_hier = function(subjects, ntrials,alpha1_l_mu,alpha1_l_sd,alpha1_w_mu,a
   alpha2_l = rbeta(subjects, zib(alpha2_l_mu, alpha2_l_sd)$alpha,zib(alpha2_l_mu, alpha2_l_sd)$beta)
   alpha2_w = rbeta(subjects, zib(alpha2_w_mu, alpha2_w_sd)$alpha,zib(alpha2_w_mu, alpha2_w_sd)$beta)
   
-  true = data.frame(pair = 1:subjects, alpha1_l = alpha1_l, alpha1_w = alpha1_w, alpha2_l = alpha2_l, alpha2_w = alpha2_w, bias1 = bias1, bias2 = bias2, incentive1 = incentive1, incentive2 = incentive2)
+  bias1 = rbeta(subjects, zib(bias1_mu, bias1_sd)$alpha,zib(bias1_mu, bias1_sd)$beta)
+  bias2 = rbeta(subjects, zib(bias2_mu, bias2_sd)$alpha,zib(bias2_mu, bias2_sd)$beta)
+  
+  alpha2_l = rbeta(subjects, zib(alpha2_l_mu, alpha2_l_sd)$alpha,zib(alpha2_l_mu, alpha2_l_sd)$beta)
+  alpha2_w = rbeta(subjects, zib(alpha2_w_mu, alpha2_w_sd)$alpha,zib(alpha2_w_mu, alpha2_w_sd)$beta)
+  
+  
+  
+  true = data.frame(pair = 1:subjects, alpha1_l = alpha1_l, alpha1_w = alpha1_w, alpha2_l = alpha2_l, alpha2_w = alpha2_w, bias1 = bias1, bias2 = bias2, incentive1 = incentive1, incentive2 = incentive2, bias1 = bias1, bias2 = bias2)
   
   agg = data.frame()
   rw1 = data.frame(1:ntrials)
@@ -295,8 +303,8 @@ rw_vs_rw_hier = function(subjects, ntrials,alpha1_l_mu,alpha1_l_sd,alpha1_w_mu,a
                   alpha1_w = alpha1_w[i],
                   alpha2_l = alpha2_l[i],
                   alpha2_w = alpha2_w[i],
-                  bias1 = bias1,
-                  bias2 = bias2,
+                  bias1 = bias1[i],
+                  bias2 = bias2[i],
                   incentive1 = incentive1,
                   incentive2 = incentive2)
     

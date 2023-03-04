@@ -3,7 +3,10 @@ data {
   int<lower=0, upper = 1> prior;
   array[n] int rw1;
   array[n] int rw2;
-  
+  real bias1_mean; 
+  real bias2_mean; 
+  real bias1_sd; 
+  real bias2_sd;  
 }
 
 // The parameters accepted by the model. Our model
@@ -17,16 +20,15 @@ parameters {
 // 'y' to be normally distributed with mean 'mu'
 // and standard deviation 'sigma'.
 model {
-  target +=normal_lpdf(bias_1 | 0.5,2);
-  target +=normal_lpdf(bias_2 | 0.5,2);
-
-  if(prior == 0){  
-    for (i in 1:n){
+  target +=normal_lpdf(bias_1 | bias1_mean,bias1_sd);
+  target +=normal_lpdf(bias_2 | bias2_mean,bias2_sd);
   
-        target +=bernoulli_logit_lpmf(rw1[i] |bias_1);
-        target +=bernoulli_logit_lpmf(rw2[i] |(1-bias_2));
-      }
-    
+  for (i in 1:n){
+    if(prior == 0){
+      target +=bernoulli_logit_lpmf(rw1[i] |bias_1);
+      target +=bernoulli_logit_lpmf(rw2[i] |(1-bias_2));
+    }
+  
   }
   
 }
