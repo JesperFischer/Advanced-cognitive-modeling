@@ -18,6 +18,7 @@ library(ggdist)
 source("~/Advanced-cognitive-modeling/agents.R")
 source("~/Advanced-cognitive-modeling/stan_helpers.R")
 library(ggdist)
+"test"
 ```
 
 ## R Markdown
