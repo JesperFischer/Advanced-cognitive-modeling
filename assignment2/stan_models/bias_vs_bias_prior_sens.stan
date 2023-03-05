@@ -25,8 +25,8 @@ model {
   
   for (i in 1:n){
     if(prior == 0){
-      target +=bernoulli_logit_lpmf(rw1[i] |bias_1);
-      target +=bernoulli_logit_lpmf(rw2[i] |(1-bias_2));
+      target +=bernoulli_lpmf(rw1[i] |inv_logit(bias_1));
+      target +=bernoulli_lpmf(rw2[i] |(1-inv_logit(bias_2)));
     }
   
   }
@@ -35,12 +35,16 @@ model {
 
 
 generated quantities{
-
+  
+  
   int sim_rw1;
   int sim_rw2;
+  real <lower = 0, upper = 1> theta1_prior = inv_logit(bias_1);
+  real <lower = 0, upper = 1> theta2_prior = inv_logit((bias_2));
   
-  sim_rw1 = binomial_rng(n,bias_1);
-  sim_rw2 = binomial_rng(n,1-bias_2);
 
+  
+  sim_rw1 = binomial_rng(n,theta1_prior);
+  sim_rw2 = binomial_rng(n,(1-theta2_prior));
   
 }

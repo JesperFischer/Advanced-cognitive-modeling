@@ -13,11 +13,11 @@ library(ggtext)
 library(posterior)
 library(bayesplot)
 library(ggdist)
+library(brms)
 
 
 source("~/Advanced-cognitive-modeling/agents.R")
 source("~/Advanced-cognitive-modeling/stan_helpers.R")
-library(ggdist)
 ```
 
 ## R Markdown
@@ -27,7 +27,7 @@ library(ggdist)
 
 #different parameter settings for the game and agents:
 #ntrials the number of times the agents play the game
-ntrials = 30
+ntrials = 120
 #alpha1_l is the learning rate for the first agent (matcher) when losing
 alpha1_l = 0
 #alpha1_l is the learning rate for the first agent (matcher) when winning
@@ -113,7 +113,7 @@ draws$prior = 0
 draws2 = rbind(draws,prior)
 
 
-draws2 %>% pivot_longer(cols = c("bias_1","bias_2")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))
+draws2 %>% pivot_longer(cols = c("theta1_prior","theta2_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))
 
 
 
@@ -171,13 +171,13 @@ source("~/Advanced-cognitive-modeling/agents.R")
 #ntrials the number of times the agents play the game
 ntrials = 120
 #alpha1_l is the learning rate for the first agent (matcher) when losing
-alpha1_l = 0.9
+alpha1_l = 0.8
 #alpha1_l is the learning rate for the first agent (matcher) when winning
-alpha1_w = 0.9
+alpha1_w = 0.8
 #alpha2_l is the learning rate for the first agent (non-matcher) when losing
-alpha2_l = 0.3
+alpha2_l = 0.1
 #alpha1_l is the learning rate for the first agent (non-matcher) when winning
-alpha2_w = 0.3
+alpha2_w = 0.1
 #bias1 is the bias of the first participant to answer 1. That is if it is 1 then agent 1 will choose 1 on the first trial, if 0.5 he picks at random
 bias1 = 0.5
 #bias 2 is what bias1 is for agent2
@@ -249,17 +249,18 @@ prior <- mod$sample(
 
 
 
-prior = as_draws_df(prior$draws())
+prior = as_draws_df(prior$draws(c("theta1_prior", "theta2_prior","alpha1_prior","alpha2_prior","sim_rw1","sim_rw2")))
 prior$prior = 1
 
-draws = as_draws_df(fit$draws())
+draws = as_draws_df(fit$draws(c("theta1_prior", "theta2_prior","alpha1_prior","alpha2_prior","sim_rw1","sim_rw2")))
 draws$prior = 0
 
 draws2 = rbind(draws,prior)
 
 
-draws2 %>% pivot_longer(cols = c("bias_1","bias_2")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))
+draws2 %>% pivot_longer(cols = c("theta1_prior","theta2_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))
 
+draws2 %>% pivot_longer(cols = c("alpha1_prior","alpha2_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))
 
 
 
@@ -268,20 +269,7 @@ draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.facto
   geom_histogram(data = prior %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)),aes(x = value),alpha = 0.3, fill = "red", binwidth = 1, col = "black")+xlab(paste("choosing '1' on ",ntrials," trials"))+ylab("posterior density")+
   geom_point(data = df %>% summarize(rw1 = sum(rw1)) %>% mutate(name = "sim_rw1"), aes(x = rw1, y = 0), col = "green",size = 6, shape = 17)+
   geom_point(data = df %>% summarize(rw2 = sum(rw2)) %>% mutate(name = "sim_rw2"), aes(x = rw2, y = 0), col = "green",size = 6, shape = 17)
-  
 
-
-
-
-
-fit$summary()
-
-
-mcmc_hist(fit$draws("bias_1"))
-mcmc_hist(fit$draws("alpha_1"))
-
-mcmc_hist(fit$draws("bias_2"))
-mcmc_hist(fit$draws("alpha_2"))
 
 ```
 
@@ -293,7 +281,10 @@ mcmc_hist(fit$draws("alpha_2"))
 source("~/Advanced-cognitive-modeling/stan_helpers.R")
 library(ggdist)
 #parameter recovery
-pr = parameter_recovery_rw_vs_rw(5,20,0.3,0.7)
+pr = parameter_recovery_rw_vs_rw(ngames = 5,
+                                 trials = 20,
+                                 lr1 = 0.3,
+                                 lr2 = 0.7)
 
 pr$plot
 ```
@@ -312,11 +303,11 @@ ntrials = 120
 #alpha1_l is the learning rate for the first agent (matcher) when losing
 alpha1_l = 0.8
 #alpha1_l is the learning rate for the first agent (matcher) when winning
-alpha1_w = 0.3
+alpha1_w = 0.6
 #alpha2_l is the learning rate for the first agent (non-matcher) when losing
-alpha2_l = 0.2
+alpha2_l = 0.6
 #alpha1_l is the learning rate for the first agent (non-matcher) when winning
-alpha2_w = 0.9
+alpha2_w = 0.3
 #bias1 is the bias of the first participant to answer 1. That is if it is 1 then agent 1 will choose 1 on the first trial, if 0.5 he picks at random
 bias1 = 0.5
 #bias 2 is what bias1 is for agent2
@@ -364,7 +355,8 @@ filemodel = "stan_models/rw_win_lose_vs_rw.stan"
 
 mod = cmdstan_model(filemodel)
 
-data = list(rw1 = df$rw1, rw2 = df$rw2, fb_rw1 = df$feedback_rw1, fb_rw2 = df$feedback_rw2, n = nrow(df))
+data = list(rw1 = df$rw1, rw2 = df$rw2, fb_rw1 = df$feedback_rw1, fb_rw2 = df$feedback_rw2, n = nrow(df), prior = 0)
+datap = list(rw1 = df$rw1, rw2 = df$rw2, fb_rw1 = df$feedback_rw1, fb_rw2 = df$feedback_rw2, n = nrow(df), prior = 1)
 
 
 fit <- mod$sample(
@@ -376,23 +368,63 @@ fit <- mod$sample(
 )
 
 
-mcmc_hist(fit$draws("alpha_1l"))
-mcmc_hist(fit$draws("alpha_1w"))
+
+prior <- mod$sample(
+  data = datap, 
+  seed = 123, 
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500
+)
 
 
-mcmc_hist(fit$draws("alpha_2l"))
-mcmc_hist(fit$draws("alpha_2w"))
+
+
+
+
+
+prior = as_draws_df(prior$draws(c("theta1_prior", "theta2_prior","alpha1l_prior","alpha1w_prior","alpha2l_prior","alpha2w_prior","sim_rw1","sim_rw2")))
+prior$prior = 1
+
+draws = as_draws_df(fit$draws(c("theta1_prior", "theta2_prior","alpha1l_prior","alpha1w_prior","alpha2l_prior","alpha2w_prior","sim_rw1","sim_rw2")))
+draws$prior = 0
+
+draws2 = rbind(draws,prior)
+
+
+draws2 %>% pivot_longer(cols = c("theta1_prior","theta2_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))
+
+draws2 %>% pivot_longer(cols = c("alpha1l_prior","alpha2l_prior","alpha1w_prior","alpha2w_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+
+  geom_vline(data = data.frame(name  = c("alpha1l_prior","alpha2l_prior","alpha1w_prior","alpha2w_prior"), vals = c(alpha1_l, alpha2_l,alpha1_w,alpha2_w)),aes(xintercept = vals))+
+  geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))+theme_classic()
+
+
+
+draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value))+facet_wrap(~name)+
+  geom_histogram(alpha = 0.8, fill = "darkblue", binwidth = 1, col = "black")+
+  geom_histogram(data = prior %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)),aes(x = value),alpha = 0.3, fill = "red", binwidth = 1, col = "black")+xlab(paste("choosing '1' on ",ntrials," trials"))+ylab("posterior density")+
+  geom_point(data = df %>% summarize(rw1 = sum(rw1)) %>% mutate(name = "sim_rw1"), aes(x = rw1, y = 0), col = "green",size = 6, shape = 17)+
+  geom_point(data = df %>% summarize(rw2 = sum(rw2)) %>% mutate(name = "sim_rw2"), aes(x = rw2, y = 0), col = "green",size = 6, shape = 17)
+
+
+
+
+
 ```
 
 
 ```{r}
 #pr for that:
+
+
+#prior:
+#N(0,1) for all see   hist(inv_logit_scaled(rnorm(10000,0,1)))
 source("~/Advanced-cognitive-modeling/stan_helpers.R")
 source("~/Advanced-cognitive-modeling/agents.R")
 
 pr = parameter_recovery_rw_gen(ngames = 5,
-                               start_trials = 100, 
-                               end_trials = 110, 
+                               start_trials = 75, 
+                               end_trials = 125, 
                                lr1_l = 0.3, 
                                lr1_w = 0.8,
                                lr2_l = 0.9,
@@ -402,11 +434,44 @@ pr$plot
 ```
 
 
+```{r}
+#sensitivity analysis:
+
+source("~/Advanced-cognitive-modeling/stan_helpers.R")
+source("~/Advanced-cognitive-modeling/agents.R")
+
+ngamess = 5
+sens_mean = sensitivty_recovery_rw_gen(ngames = ngamess,
+                               start_trials = 120,
+                               end_trials = 122,
+                               lr1_l = 0.3, 
+                               lr1_w = 0.8,
+                               lr2_l = 0.9,
+                               lr2_w = 0.1,
+                               mean = seq(-3,3,length.out = ngamess))
+
+sens_mean$plot
+
+
+sens_sd = sensitivty_recovery_rw_gen(ngames = ngamess,
+                               start_trials = 120,
+                               end_trials = 122,
+                               lr1_l = 0.3, 
+                               lr1_w = 0.8,
+                               lr2_l = 0.9,
+                               lr2_w = 0.1,
+                               sd = seq(0.1,1,length.out = ngamess))
+sens_sd$plot
+
+
+```
+
+
+
+
 
 ```{r}
 #multilevel_model first see that simulation work
-
-library(ggtext)
 
 #different parameter settings for the game and agents:
 #ntrials the number of times the agents play the game
@@ -452,8 +517,10 @@ agg = rw_vs_rw_hier(subjects = subjects,
          alpha2_l_sd,
          alpha2_w_mu,
          alpha2_w_sd,
-         bias1, 
-         bias2, 
+         bias1_mu, 
+         bias2_mu,
+         bias1_sd, 
+         bias2_sd,
          incentive1, 
          incentive2)
 

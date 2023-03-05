@@ -5,8 +5,26 @@ data {
   array[n] int fb_rw1;
   array[n] int fb_rw2;
   int <lower = 0, upper = 1> prior;
+  real bias1_mean; 
+  real bias2_mean; 
+  real bias1_sd; 
+  real bias2_sd; 
+
+  real alpha_1w_mean; 
+  real alpha_2w_mean; 
+  real alpha_1w_sd; 
+  real alpha_2w_sd; 
+  
+  
+  real alpha_1l_mean; 
+  real alpha_2l_mean; 
+  real alpha_1l_sd; 
+  real alpha_2l_sd; 
+  
+
   
 }
+
 
 // The parameters accepted by the model. Our model
 // accepts two parameters 'mu' and 'sigma'.
@@ -51,14 +69,14 @@ transformed parameters{
 model {
   
   
-  target += normal_lpdf(bias_1 | 0,1);
-  target += normal_lpdf(bias_2 | 0,1);
+  target +=normal_lpdf(bias_1 | bias1_mean,bias1_sd);
+  target +=normal_lpdf(bias_2 | bias2_mean,bias2_sd);
   
-  target +=normal_lpdf(alpha_1w | 0,1);
-  target +=normal_lpdf(alpha_1l | 0,1);
+  target +=normal_lpdf(alpha_1w | alpha_1w_mean,alpha_1w_sd);
+  target +=normal_lpdf(alpha_1l | alpha_1l_mean,alpha_1l_sd);
   
-  target +=normal_lpdf(alpha_2w | 0,1);
-  target +=normal_lpdf(alpha_2l | 0,1);
+  target +=normal_lpdf(alpha_2w | alpha_2w_mean,alpha_2w_sd);
+  target +=normal_lpdf(alpha_2l | alpha_2l_mean,alpha_2l_sd);
   
   
   if(prior == 0){
@@ -96,5 +114,3 @@ generated quantities{
   int sim_rw2 = sum(sim_rw2t);
   
 }
-
-

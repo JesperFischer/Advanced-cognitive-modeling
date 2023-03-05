@@ -65,11 +65,11 @@ model {
     
   
   for (s in 1:subjects){
-    target +=beta_lpdf(bias_1[s] | bias_1_mu*((1/bias_1_sd)-1),((1/bias_1_sd)-1)*(1-bias_1_mu));
-    target +=beta_lpdf(bias_2[s] | bias_2_mu*((1/bias_2_sd)-1),((1/bias_2_sd)-1)*(1-bias_2_mu));
+    target +=beta_lpdf(bias_1[s] | bias_1_mu, bias_1_sd);
+    target +=beta_lpdf(bias_2[s] | bias_2_mu, bias_2_sd);
     
-    target +=beta_lpdf(alpha_1[s] | alpha_1_mu*((1/alpha_1_sd)-1),((1/alpha_1_sd)-1)*(1-alpha_1_mu));
-    target +=beta_lpdf(alpha_2[s] | alpha_2_mu*((1/alpha_2_sd)-1),((1/alpha_2_sd)-1)*(1-alpha_2_mu));
+    target +=beta_lpdf(alpha_1[s] | alpha_1_mu,alpha_1_sd);
+    target +=beta_lpdf(alpha_2[s] | alpha_2_mu,alpha_2_sd);
 
     for (t in 1:trials){
     
