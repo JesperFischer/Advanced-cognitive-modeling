@@ -299,7 +299,7 @@ source("~/Advanced-cognitive-modeling/agents.R")
 
 #different parameter settings for the game and agents:
 #ntrials the number of times the agents play the game
-ntrials = 120
+ntrials = 500
 #alpha1_l is the learning rate for the first agent (matcher) when losing
 alpha1_l = 0.8
 #alpha1_l is the learning rate for the first agent (matcher) when winning
@@ -493,10 +493,16 @@ alpha2_l_sd = 0.1
 alpha2_w_mu = 0.4
 alpha2_w_sd = 0.1
 
+
+
 #bias1 is the bias of the first participant to answer 1. That is if it is 1 then agent 1 will choose 1 on the first trial, if 0.5 he picks at random
-bias1 = 0.5
+bias1_mu = 0.2
+bias1_sd = 0.1
+
 #bias 2 is what bias1 is for agent2
-bias2 = 0.5
+bias2_mu = 0.8
+bias2_sd = 0.1
+
 
 #the incentive of the first agent do you play after your belief (0) or do you choose the oppisite of your belief (1)
 incentive1 = 0
@@ -574,9 +580,14 @@ alpha2_w_mu = 0
 alpha2_w_sd = 0.01
 
 #bias1 is the bias of the first participant to answer 1. That is if it is 1 then agent 1 will choose 1 on the first trial, if 0.5 he picks at random
-bias1 = 0.8
+bias1_mu = 0.2
+bias1_sd = 0.01
+
 #bias 2 is what bias1 is for agent2
-bias2 = 0.2
+bias2_mu = 0.8
+bias2_sd = 0.01
+
+
 
 #the incentive of the first agent do you play after your belief (0) or do you choose the oppisite of your belief (1)
 incentive1 = 0
@@ -584,7 +595,7 @@ incentive1 = 0
 incentive2 = 0
 
 #make the agents play 100 times and plot it (included)
-subjects = 5
+subjects = 20
 
 
 
@@ -598,8 +609,10 @@ agg = rw_vs_rw_hier(subjects = subjects,
          alpha2_l_sd,
          alpha2_w_mu,
          alpha2_w_sd,
-         bias1, 
-         bias2, 
+         bias1_mu, 
+         bias2_mu,
+         bias1_sd, 
+         bias2_sd,
          incentive1, 
          incentive2)
 
@@ -621,6 +634,8 @@ fit <- mod$sample(
   parallel_chains = 4,
   refresh = 500
 )
+
+
 
 
 fit$summary()
@@ -663,11 +678,11 @@ alpha2_w_sd = 0.01
 
 #bias1 is the bias of the first participant to answer 1. That is if it is 1 then agent 1 will choose 1 on the first trial, if 0.5 he picks at random
 bias1_mu = 0.2
-bias1_sd = 0.1
+bias1_sd = 0.2
 
 #bias 2 is what bias1 is for agent2
-bias2_mu = 0.8
-bias2_sd = 0.1
+bias2_mu = 0.7
+bias2_sd = 0.2
 
 
 #the incentive of the first agent do you play after your belief (0) or do you choose the oppisite of your belief (1)
@@ -676,7 +691,7 @@ incentive1 = 0
 incentive2 = 0
 
 #make the agents play 100 times and plot it (included)
-subjects = 5
+subjects = 20
 
 
 
@@ -715,10 +730,27 @@ trialevel %>% mutate(x = rep(1:120,subjects)) %>%
   facet_wrap(~pair)+
   theme_classic()
 
-data = list(rw1 = as.matrix(agg$rw1), rw2 = as.matrix(agg$rw2), fb_rw1 = as.matrix(agg$rw1_fb), fb_rw2 = as.matrix(agg$rw2_fb), trials = nrow(agg$rw1), subjects = ncol(agg$rw1))
+data = list(rw1 = as.matrix(agg$rw1), 
+            rw2 = as.matrix(agg$rw2), 
+            fb_rw1 = as.matrix(agg$rw1_fb), 
+            fb_rw2 = as.matrix(agg$rw2_fb), 
+            trials = nrow(agg$rw1), 
+            subjects = ncol(agg$rw1),
+            prior = 0)
+
+
+datap = list(rw1 = as.matrix(agg$rw1), 
+            rw2 = as.matrix(agg$rw2), 
+            fb_rw1 = as.matrix(agg$rw1_fb), 
+            fb_rw2 = as.matrix(agg$rw2_fb), 
+            trials = nrow(agg$rw1), 
+            subjects = ncol(agg$rw1),
+            prior = 1)
+
+
 
 setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/rw_vs_rw_hier.stan"
+filemodel = "stan_models/bias_vs_bias_hier.stan"
 
 mod = cmdstan_model(filemodel)
 
@@ -731,28 +763,59 @@ fit <- mod$sample(
   refresh = 500
 )
 
-fit$summary()
 
 
-mcmc_hist(fit$draws("alpha_1_mu"))
-mcmc_hist(fit$draws("alpha_1_sd"))
-mcmc_hist(fit$draws("alpha_2_mu"))
-mcmc_hist(fit$draws("alpha_2_sd"))
+prior <- mod$sample(
+  data = datap, 
+  seed = 123, 
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500
+)
 
 
 
-mcmc_hist(fit$draws("bias_1_mu"))
-mcmc_hist(fit$draws("bias_1_sd"))
-mcmc_hist(fit$draws("bias_2_mu"))
-mcmc_hist(fit$draws("bias_2_sd"))
+prior = as_draws_df(prior$draws(c("theta1_prior", "theta2_prior","alpha1l_prior","alpha1w_prior","alpha2l_prior","alpha2w_prior","sim_rw1","sim_rw2")))
+prior$prior = 1
+
+draws = as_draws_df(fit$draws(c("theta1_prior", "theta2_prior","alpha1l_prior","alpha1w_prior","alpha2l_prior","alpha2w_prior","sim_rw1","sim_rw2")))
+draws$prior = 0
+
+draws2 = rbind(draws,prior)
 
 
-mcmc_hist(fit$draws("alpha_1"))
-mcmc_hist(fit$draws("alpha_2"))
+draws2 %>% pivot_longer(cols = c("theta1_prior","theta2_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))
+
+draws2 %>% pivot_longer(cols = c("alpha1l_prior","alpha2l_prior","alpha1w_prior","alpha2w_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+
+  geom_vline(data = data.frame(name  = c("alpha1l_prior","alpha2l_prior","alpha1w_prior","alpha2w_prior"), vals = c(alpha1_l, alpha2_l,alpha1_w,alpha2_w)),aes(xintercept = vals))+
+  geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))+theme_classic()
 
 
-mcmc_hist(fit$draws("bias_1"))
-mcmc_hist(fit$draws("bias_2"))
+
+draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value))+facet_wrap(~name)+
+  geom_histogram(alpha = 0.8, fill = "darkblue", binwidth = 1, col = "black")+
+  geom_histogram(data = prior %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)),aes(x = value),alpha = 0.3, fill = "red", binwidth = 1, col = "black")+xlab(paste("choosing '1' on ",ntrials," trials"))+ylab("posterior density")+
+  geom_point(data = df %>% summarize(rw1 = sum(rw1)) %>% mutate(name = "sim_rw1"), aes(x = rw1, y = 0), col = "green",size = 6, shape = 17)+
+  geom_point(data = df %>% summarize(rw2 = sum(rw2)) %>% mutate(name = "sim_rw2"), aes(x = rw2, y = 0), col = "green",size = 6, shape = 17)
+
+
+
+#mcmc_hist(fit$draws("alpha_1_mu"))
+#mcmc_hist(fit$draws("alpha_1_sd"))
+#mcmc_hist(fit$draws("alpha_2_mu"))
+#mcmc_hist(fit$draws("alpha_2_sd"))
+
+
+
+mcmc_hist(fit$draws("theta1_prior_p"))
+mcmc_hist(fit$draws("theta2_prior_p"))
+
+#mcmc_hist(fit$draws("alpha_1"))
+#mcmc_hist(fit$draws("alpha_2"))
+
+
+mcmc_hist(fit$draws("theta1_prior"))
+mcmc_hist(fit$draws("theta2_prior"))
 
 pairwise
 ```
