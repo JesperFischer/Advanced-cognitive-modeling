@@ -39,7 +39,7 @@ generated quantities{
   int sim_rw2;
  
   real <lower = 0, upper = 1> theta1_prior = inv_logit(bias_1);
-  real <lower = 0, upper = 1> theta2_prior = inv_logit(bias_2);
+  real <lower = 0, upper = 1> theta2_prior = inv_logit((bias_2));
   
 
   

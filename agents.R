@@ -86,7 +86,9 @@ rw_agent2 = function(previous_expected, previous_them, alpha_w, alpha_l, feedbac
 
 
 #plot choices:
-
+#
+#
+#
 
 plot_choices = function(df){
   
