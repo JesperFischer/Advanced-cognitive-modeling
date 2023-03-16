@@ -18,6 +18,11 @@ library(ggdist)
 library(brms)
 
 
+
+
+#tester
+
+
 source("~/Advanced-cognitive-modeling/agents.R")
 source("~/Advanced-cognitive-modeling/stan_helpers.R")
 ```
