@@ -5,6 +5,8 @@ date: "2023-02-23"
 output: html_document
 ---
 
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -19,6 +21,7 @@ library(brms)
 source("~/Advanced-cognitive-modeling/agents.R")
 source("~/Advanced-cognitive-modeling/stan_helpers.R")
 ```
+
 
 ## R Markdown
 
@@ -133,6 +136,7 @@ draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.facto
 ```{r}
 #priors are normal (0, 2), as the above plot (comes from bias_vs_bias)
 #parameter recovery
+
 pr = parameter_recovery_bias_vs_bias(ngames = 20,
                                      trials = 20)
 
@@ -471,8 +475,8 @@ sens_sd$plot
 
 
 ```{r}
-#multilevel_model first see that simulation work
 
+#multilevel_model first see that simulation work
 #different parameter settings for the game and agents:
 #ntrials the number of times the agents play the game
 ntrials = 120
