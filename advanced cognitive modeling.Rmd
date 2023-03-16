@@ -1,13 +1,15 @@
 ---
 title: "advanced cognitive modeling"
 author: "jesper fischer ehmsen"
-date: "2023-02-16"
+date: "2023-02-160
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # 
+#
+#
 #
 #
 #
