@@ -489,7 +489,7 @@ ntrials = 120
 alpha1_l_mu = 0.5
 alpha1_l_sd = 0.1
 
-alpha1_w_mu = 0.5
+alpha1_w_mu = 0.01
 alpha1_w_sd = 0.1
 
 
@@ -549,7 +549,7 @@ trialevel$rw1 = as.factor(trialevel$rw1)
 
 pairwise$pair = as.factor(pairwise$pair)
 #plot them:
-trialevel %>% mutate(x = rep(1:120,5)) %>% 
+trialevel %>% mutate(x = rep(1:120,20)) %>% 
   pivot_longer(cols = c("expectation1","expectation2")) %>% inner_join(pairwise, by = "pair") %>% 
   ggplot() +
   geom_line(aes(x = x, y = value, col = name))+
@@ -562,7 +562,9 @@ trialevel %>% mutate(x = rep(1:120,5)) %>%
 ```
 
 
-```{r}
+```{r, dont run}
+
+
 #then we fit stan model first simply bias vs bais:
 
 source("~/Advanced-cognitive-modeling/agents.R")
@@ -628,7 +630,13 @@ agg = rw_vs_rw_hier(subjects = subjects,
 pairwise = agg$pairlevel
 trialevel = agg$triallevel
 
-data = list(rw1 = as.matrix(agg$rw1), rw2 = as.matrix(agg$rw2), fb_rw1 = as.matrix(agg$rw1_fb), fb_rw2 = as.matrix(agg$rw2_fb), trials = nrow(agg$rw1), subjects = ncol(agg$rw1))
+data = list(rw1 = as.matrix(agg$rw1), rw2 = as.matrix(agg$rw2), fb_rw1 = as.matrix(agg$rw1_fb), fb_rw2 = as.matrix(agg$rw2_fb), trials = nrow(agg$rw1), subjects = ncol(agg$rw1), prior = 0)
+
+
+
+
+
+
 
 setwd("~/Advanced-cognitive-modeling/assignment2")
 filemodel = "stan_models/bias_vs_bias_hier.stan"
@@ -687,11 +695,11 @@ alpha2_w_sd = 0.01
 
 #bias1 is the bias of the first participant to answer 1. That is if it is 1 then agent 1 will choose 1 on the first trial, if 0.5 he picks at random
 bias1_mu = 0.2
-bias1_sd = 0.2
+bias1_sd = 0.05
 
 #bias 2 is what bias1 is for agent2
 bias2_mu = 0.7
-bias2_sd = 0.2
+bias2_sd = 0.05
 
 
 #the incentive of the first agent do you play after your belief (0) or do you choose the oppisite of your belief (1)
@@ -700,7 +708,7 @@ incentive1 = 0
 incentive2 = 0
 
 #make the agents play 100 times and plot it (included)
-subjects = 20
+subjects = 10
 
 
 
@@ -781,23 +789,37 @@ prior <- mod$sample(
   parallel_chains = 4,
   refresh = 500
 )
+```
 
 
 
-prior = as_draws_df(prior$draws(c("theta1_prior", "theta2_prior","alpha1l_prior","alpha1w_prior","alpha2l_prior","alpha2w_prior","sim_rw1","sim_rw2")))
+
+```{r, plot it}
+
+prior = as_draws_df(prior$draws())
 prior$prior = 1
 
-draws = as_draws_df(fit$draws(c("theta1_prior", "theta2_prior","alpha1l_prior","alpha1w_prior","alpha2l_prior","alpha2w_prior","sim_rw1","sim_rw2")))
+draws = as_draws_df(fit$draws())
 draws$prior = 0
 
 draws2 = rbind(draws,prior)
 
+#population effects:
 
-draws2 %>% pivot_longer(cols = c("theta1_prior","theta2_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))
+draws2 %>% pivot_longer(cols = c("theta1_prior_p","theta2_prior_p")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))+
+  geom_vline(data = data.frame(name = c("theta1_prior_p","theta2_prior_p"), vals = c(bias1_mu, bias2_mu)), aes(xintercept = vals))
 
-draws2 %>% pivot_longer(cols = c("alpha1l_prior","alpha2l_prior","alpha1w_prior","alpha2w_prior")) %>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value, fill = prior))+
-  geom_vline(data = data.frame(name  = c("alpha1l_prior","alpha2l_prior","alpha1w_prior","alpha2w_prior"), vals = c(alpha1_l, alpha2_l,alpha1_w,alpha2_w)),aes(xintercept = vals))+
-  geom_density(aes(x = value), alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))+theme_classic()
+
+qq = draws2 %>% filter(prior == 0) %>% select(c(starts_with("theta1_prior["))) %>% pivot_longer(cols = everything()) %>% mutate(agent = as.factor(1)) %>% mutate(name = substr(name, 14, 14))
+qq1 = draws2%>% filter(prior == 0) %>% select(c(starts_with("theta2_prior["))) %>% pivot_longer(cols = everything()) %>% mutate(agent = as.factor(2)) %>% mutate(name = substr(name, 14, 14))
+
+qq2 = rbind(qq,qq1)
+
+qq2 %>% ggplot(aes(x = value, fill = agent))+
+  geom_density(alpha = 0.3)+facet_wrap(~name)+scale_fill_manual(values = c("blue","red"))+
+  theme_classic()+
+  geom_vline(data = data.frame(name  = rep(1:subjects,2), vals = c(pairwise$bias1,pairwise$bias2), col = as.factor(c(rep(1,subjects),rep(2,subjects)))),aes(xintercept = vals, col = col))+
+  scale_color_manual(values = c("blue","red"))
 
 
 
@@ -830,5 +852,138 @@ pairwise
 ```
 
 
+
+
+
+```{r}
+#fitting the hgf to a random bias agent
+
+source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
+
+bias = c(0.5,rep(c(0.2,0.8),3),0.5)
+trials = c(75,rep(c(20,30),3),75)
+
+u = rm_agent(bias,trials)
+
+ggplot(data = data.frame(u), aes(x = 1:length(u),y =u))+geom_point()+theme_classic()+geom_line(aes(x = 1:length(u), y = rep(bias,trials)))
+
+input = data.frame(kappa = 1.4, theta = 0.3, omega = -2,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
+data = hgf_agent(u,input)
+
+q1 = data %>% dplyr::select(u,trial,mu1hat,sa1hat,mu2,sa2,mu3,sa3) %>% mutate(level = 1, mu2 = NA, sa2 = NA,mu3 = NA,sa3 = NA)
+q2 = data %>% dplyr::select(u,trial,mu1hat,sa1hat,mu2,sa2,mu3,sa3) %>% mutate(level = 2, mu1hat = NA, sa1hat = NA, mu3 = NA, sa3 = NA, u = NA)
+q3 = data %>% dplyr::select(u,trial,mu1hat,sa1hat,mu2,sa2,mu3,sa3) %>% mutate(level = 3, mu1hat = NA, sa1hat = NA,mu2 = NA, sa2 = NA, u = NA)
+
+q3 = rbind(q1,q2,q3)
+
+q3$level = as.factor(q3$level)
+
+
+q3 %>% mutate(level = factor(level, labels = c("Predictions","Expectations","Volatility")),level = factor(level, levels = c("Volatility", "Expectations","Predictions")),lower1 = mu1hat-sa1hat, upper1 = mu1hat+sa1hat, lower2 = mu2-sa2, upper2 = mu2+sa2, lower3 = mu3-sa3, upper3 = mu3+sa3) %>%
+ggplot(aes())+
+geom_line(data = data.frame(level = as.factor("Predictions"), x = 1:length(u), y = rep(bias,trials)),aes(x = 1:length(u), y = rep(bias,trials)))+
+facet_wrap(~level, scales = "free",nrow = 3)+
+geom_line(aes(x = trial, y = mu1hat), col = "#c44e52")+
+geom_point(aes(x = trial, y = u), col = "black")+
+geom_ribbon(aes(x = trial, ymax = upper1, ymin = lower1), fill = "#4c72b0", alpha = 0.5)+
+geom_ribbon(aes(x = trial, ymax = upper2, ymin = lower2), fill  = "#c44e52", alpha = 0.5)+
+#geom_ribbon(aes(x = trial, ymax = upper3, ymin = lower3), fill  = "black", alpha = 0.5)+
+geom_line(aes(x = trial, y = mu2), col = "#c44e52")+
+geom_line(aes(x = trial, y = mu3), col = "black")+
+theme_classic()+
+theme(text = element_text(size=12))+
+ylab(" ")
+```
+
+
+
+
+
+
+```{r}
+library(shiny)
+library(ggplot2)
+library(shinythemes)
+library(shinyWidgets)
+
+#input = data.frame(kappa = 1.4, theta = 0.3, omega = -2,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
+
+bias = c(0.5,rep(c(0.2,0.8),3),0.5)
+trials = c(150,rep(c(20,30),3),150)
+
+slider_params1 <- list(
+  list("theta", "theta", -10, 10, -6, 0.1),
+  list("omega", "omega:", -10, 10, -4, 0.1),
+  list("kappa", "kappa:", 0, 3, 1, 0.1),
+  list("Inital_prec2", "Inital_prec2", 0, 4, 1, 0.1),
+  list("Inital_mu2", "Inital_mu2", -5, 5, 0, 0.1),
+  list("Inital_mu3", "Inital_mu3", -5, 5, 0, 0.1),
+  list("Inital_prec3", "Inital_prec3", 0, 4, 1, 0.1)
+)
+
+
+ui <- fluidPage(
+  tabsetPanel(
+    tabPanel("Page 1",
+      sidebarLayout(
+        sidebarPanel(
+          lapply(slider_params1, function(p) {
+            do.call(sliderInput, p)
+          })
+        ),
+        mainPanel(
+        fluidRow(
+        column(12, plotOutput("plot", height = "750px"))
+      )
+    )))
+  )
+)
+
+
+server <- function(input, output) {
+ hgf = reactive({
+    
+
+    source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
+    u = rm_agent(bias,trials)
+    data = hgf_agent(u,input)
+        
+    q1 = data %>% dplyr::select(u,trial,mu1hat,sa1hat,mu2,sa2,mu3,sa3) %>% mutate(level = 1, mu2 = NA, sa2 = NA,mu3 = NA,sa3 = NA)
+    q2 = data %>% dplyr::select(u,trial,mu1hat,sa1hat,mu2,sa2,mu3,sa3) %>% mutate(level = 2, mu1hat = NA, sa1hat = NA, mu3 = NA, sa3 = NA, u = NA)
+    q3 = data %>% dplyr::select(u,trial,mu1hat,sa1hat,mu2,sa2,mu3,sa3) %>% mutate(level = 3, mu1hat = NA, sa1hat = NA,mu2 = NA, sa2 = NA, u = NA)
+    
+    q3 = rbind(q1,q2,q3)
+    
+    q3$level = as.factor(q3$level)
+    
+    return(q3)   
+ })
+ 
+ output$plot <- renderPlot({
+    source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
+
+    u = rm_agent(bias,trials)
+    hgf() %>% mutate(level = factor(level, labels = c("Predictions","Expectations","Volatility")),level = factor(level, levels = c("Volatility", "Expectations","Predictions")),lower1 = mu1hat-sa1hat, upper1 = mu1hat+sa1hat, lower2 = mu2-sa2, upper2 = mu2+sa2, lower3 = mu3-sa3, upper3 = mu3+sa3) %>%
+    ggplot(aes())+
+    geom_line(data = data.frame(level = as.factor("Predictions"), x = 1:length(u), y = rep(bias,trials)),aes(x = 1:length(u), y = rep(bias,trials)))+
+    facet_wrap(~level, scales = "free",nrow = 3)+
+    geom_line(aes(x = trial, y = mu1hat), col = "#c44e52")+
+    geom_point(aes(x = trial, y = u), col = "black")+
+    geom_ribbon(aes(x = trial, ymax = upper1, ymin = lower1), fill = "#4c72b0", alpha = 0.5)+
+    geom_ribbon(aes(x = trial, ymax = upper2, ymin = lower2), fill  = "#c44e52", alpha = 0.5)+
+    #geom_ribbon(aes(x = trial, ymax = upper3, ymin = lower3), fill  = "black", alpha = 0.5)+
+    geom_line(aes(x = trial, y = mu2), col = "#c44e52")+
+    geom_line(aes(x = trial, y = mu3), col = "black")+
+    theme_classic()+
+    theme(text = element_text(size=12))+
+    ylab(" ")
+   
+ })
+ 
+  
+}
+shinyApp(ui = ui, server = server)
+
+```
 
 
