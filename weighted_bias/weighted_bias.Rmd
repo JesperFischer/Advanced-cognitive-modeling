@@ -1,0 +1,244 @@
+---
+title: "weighted_bayes"
+author: "Jesper Fischer Ehmsen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+trials = 3
+library(brms)
+library(tidyverse)
+library(cmdstanr)
+library(here)
+  
+## The model is from "Taking others into account" (in the syllabus)
+## It takes two sources of information and weights them, then adds a bias
+## to generate a posterior on a 0-1 scale
+
+WeightedBayes_f1 <- function(bias, Source1, Source2, w1, w2){
+  outcome <- inv_logit_scaled(bias + weight_f(logit_scaled(Source1), w1) +
+                                weight_f(logit_scaled(Source2), w2))
+  return(outcome)
+}
+
+## The weight_f formula comes from https://www.nature.com/articles/ncomms14218
+## and ensures that even if we work on a log-odds scale, we get the right weights
+## It takes all values of L (- inf to +inf). Technically the only valid values for
+## w are 0.5 (no consideration of the evidence) to 1 (taking the evidence at face value).
+## In practice the function would also accept 0-0.5 (invert the evidence, at face value
+## if 0, at decreased value as it grows towards 0.5), and slightly higher than 1
+## (overweighing the evidence, but it's very unstable and quickly gives NaN).
+
+weight_f <- function(L, w){
+  return(log((w * exp(L) + 1 - w) / 
+        ((1 - w) * exp(L) + w)))
+}
+
+
+  
+file <- file.path(paste0(here(),"/weighted_bias/weighted_bias.stan"))
+
+mod_wb1 <- cmdstan_model(file, cpp_options = list(stan_threads = TRUE),
+                     stanc_options = list("O1"))
+
+
+## We define the parameters for the simulation
+bias <- seq(0,0.9,0.1)
+w1 <- seq(0.5,0.9,0.1)
+w2 <- seq(0.5,0.9,0.1)
+
+parameters = expand.grid(w1 = w1, w2 = w2, bias = bias)
+
+data = data.frame()
+for (i in 1:nrow(parameters)){
+  
+  w1 = parameters$w1[i]
+  w2 = parameters$w2[i]
+  bias = parameters$bias[i]
+  
+  Source1 <- seq(0.1,0.9, 0.1)
+  Source2 <- seq(0.1,0.9, 0.1)
+  
+  ## We create the data
+  db <- expand.grid(bias = bias, Source1 = Source1, Source2 = Source2, w1 = w1, w2 = w2)
+  
+  for (n in seq(nrow(db))) {
+    db$belief1[n] <- WeightedBayes_f1(db$bias[n], db$Source1[n], db$Source2[n],db$w1[n], db$w2[n])
+    db$binary1[n] <- rbinom(1,1, db$belief1[n])
+    }
+  
+  # making a log-odds version of the source info for the model
+  db <-  db %>% mutate(
+    l1 = logit_scaled(Source1),
+    l2 = logit_scaled(Source2)
+  )
+  
+    
+
+  ## We create and fit the stan model
+  
+
+  
+  
+  data_weightedBayes1 <- list(
+    N = nrow(db),
+    y = db$binary1,
+    Source1 = db$l1,
+    Source2 = db$l2
+  )
+  
+  samples_weighted1 <- mod_wb1$sample(
+    data = data_weightedBayes1,
+    seed = 123,
+    chains = 2,
+    parallel_chains = 2,
+    threads_per_chain = 2,
+    iter_warmup = 1500,
+    iter_sampling = 3000,
+    refresh = 500
+  )
+  
+  
+  summar = samples_weighted1$summary(c("weight1","weight2","bias","w1","w2")) %>% mutate(reals = c(w1,w2,bias,w1,w2))
+  
+  data = rbind(data,summar)
+  
+}
+
+library(patchwork)
+
+p1 = data %>% filter(variable != c("bias","w1","w2")) %>% ggplot(aes(x = 0.5+inv_logit_scaled(mean)/2, y = reals))+geom_point()+facet_wrap(~variable, scales = "free")+geom_abline(aes(intercept = 0, slope = 1))+theme_classic()
+
+p2 = data %>% filter(variable == c("bias","w1","w2")) %>% ggplot(aes(x = reals, y = mean))+facet_wrap(~variable, scales = "free")+
+  #geom_pointrange(aes(x = reals, y = mean,ymin = q5, ymax = q95),position = position_jitter(width = 0.1, seed = 3922))+
+  geom_point()+
+  geom_abline(aes(intercept = 0, slope = 1))+theme_classic()
+p2
+
+layout <- c(
+  area(1, 1,2,1),
+  area(1, 2, 2,3)
+)
+
+p2+p1+plot_layout(design = layout)
+
+p2
+p1
+```
+
+
+
+
+
+```{r}
+
+
+## The model is from "Taking others into account" (in the syllabus)
+## It takes two sources of information and weights them, then adds a bias
+## to generate a posterior on a 0-1 scale
+
+WeightedBayes_f1 <- function(bias, Source1, Source2, w1, w2){
+  outcome <- inv_logit_scaled(bias + weight_f(logit_scaled(Source1), w1) +
+                                weight_f(logit_scaled(Source2), w2))
+  return(outcome)
+}
+
+## The weight_f formula comes from https://www.nature.com/articles/ncomms14218
+## and ensures that even if we work on a log-odds scale, we get the right weights
+## It takes all values of L (- inf to +inf). Technically the only valid values for
+## w are 0.5 (no consideration of the evidence) to 1 (taking the evidence at face value).
+## In practice the function would also accept 0-0.5 (invert the evidence, at face value
+## if 0, at decreased value as it grows towards 0.5), and slightly higher than 1
+## (overweighing the evidence, but it's very unstable and quickly gives NaN).
+
+weight_f <- function(L, w){
+  return(log((w * exp(L) + 1 - w) / 
+        ((1 - w) * exp(L) + w)))
+      }
+      
+## We define the parameters for the simulation
+bias <- 0
+w1 <- 0.7
+w2 <- 0.9
+
+## We define the evidence from the sources (from the range of possible values)
+Source1 <- seq(0.1,0.9, 0.1)
+Source2 <- seq(0.1,0.9, 0.1)
+
+## We create the data
+db <- expand.grid(bias = bias, Source1 = Source1, Source2 = Source2, w1 = w1, w2 = w2)
+
+for (n in seq(nrow(db))) {
+  db$belief1[n] <- WeightedBayes_f1(db$bias[n], db$Source1[n], db$Source2[n],db$w1[n], db$w2[n])
+  db$binary1[n] <- rbinom(1,1, db$belief1[n])
+  }
+
+# making a log-odds version of the source info for the model
+db <-  db %>% mutate(
+  l1 = logit_scaled(Source1),
+  l2 = logit_scaled(Source2)
+)
+
+  
+## We visualize as a sanity check
+ggplot(db, aes(Source1, belief1, color = Source2, group = Source2)) +
+  geom_line() +
+  theme_bw() +
+  facet_wrap(w1~w2)
+
+
+file <- file.path(paste0(here(),"/weighted_bias/weighted_bias.stan"))
+
+mod_wb1 <- cmdstan_model(file, cpp_options = list(stan_threads = TRUE),
+                     stanc_options = list("O1"))
+
+
+data_weightedBayes1 <- list(
+  N = nrow(db),
+  y = db$binary1,
+  Source1 = db$l1,
+  Source2 = db$l2
+)
+
+samples_weighted1 <- mod_wb1$sample(
+  data = data_weightedBayes1,
+  seed = 123,
+  chains = 2,
+  parallel_chains = 2,
+  threads_per_chain = 2,
+  iter_warmup = 1500,
+  iter_sampling = 3000,
+  refresh = 500
+)
+
+# Visualizing for sanity checks
+draws_df <- as_draws_df(samples_weighted1$draws())
+
+ggplot(draws_df) +
+  geom_histogram(aes(bias), alpha = 0.6, fill = "lightblue") +
+  geom_histogram(aes(bias_prior), alpha = 0.6, fill = "pink") +
+  geom_vline(xintercept = db$bias[1]) +
+  theme_bw()
+
+ggplot(draws_df) +
+  geom_histogram(aes(w1), alpha = 0.6, fill = "lightblue") +
+  geom_histogram(aes(w1_prior), alpha = 0.6, fill = "pink") +
+  geom_vline(xintercept = db$w1[1]) +
+  theme_bw()
+
+ggplot(draws_df) +
+  geom_density(aes(w2), alpha = 0.6, fill = "lightblue") +
+  geom_density(aes(w2_prior), alpha = 0.6, fill = "pink") +
+  geom_vline(xintercept = db$w2[1]) +
+  theme_bw()
+
+```
+
+
