@@ -16,15 +16,9 @@ library(posterior)
 library(bayesplot)
 library(ggdist)
 library(brms)
+source(here::here("agents.R"))
+source(here::here("stan_helpers.R"))
 
-
-
-
-#tester
-
-
-source("~/Advanced-cognitive-modeling/agents.R")
-source("~/Advanced-cognitive-modeling/stan_helpers.R")
 ```
 
 
@@ -32,7 +26,6 @@ source("~/Advanced-cognitive-modeling/stan_helpers.R")
 
 
 ```{r}
-
 #different parameter settings for the game and agents:
 #ntrials the number of times the agents play the game
 ntrials = 120
@@ -78,7 +71,7 @@ df = rw_vs_rw(ntrials = ntrials,
          alpha2_w = alpha2_w,
          bias1 = bias1,
          bias2 = bias2,
-         incentive1 = incentive1,  # 0 doesn't care about ,  1 does the oppisite
+         incentive1 = incentive1,  
          incentive2 = incentive2
          )
 
@@ -86,9 +79,7 @@ df = data.frame(df)
 
 
 #lets fit in stan:
-
-setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/bias_vs_bias.stan"
+filemodel = here::here("assignment2", "stan_models/bias_vs_bias.stan")
 
 mod = cmdstan_model(filemodel)
 
@@ -141,7 +132,6 @@ draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.facto
 ```{r}
 #priors are normal (0, 2), as the above plot (comes from bias_vs_bias)
 #parameter recovery
-
 pr = parameter_recovery_bias_vs_bias(ngames = 20,
                                      trials = 20)
 
@@ -174,7 +164,6 @@ sens_sd$plot
 
 ```{r}
 #rw vs Rescorla wagner fit one participant
-source("~/Advanced-cognitive-modeling/agents.R")
 
 #different parameter settings for the game and agents:
 #ntrials the number of times the agents play the game
@@ -230,8 +219,7 @@ df = data.frame(df)
 
 #lets fit in stan:
 
-setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/rw_vs_rw.stan"
+filemodel = here::here("assignment2","stan_models","rw_vs_rw.stan")
 
 mod = cmdstan_model(filemodel)
 
@@ -286,8 +274,8 @@ draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.facto
 ```{r}
 #parameter recovery of rescorla wagner vs rescorla wagner
 
-#prios = 
-source("~/Advanced-cognitive-modeling/stan_helpers.R")
+
+
 library(ggdist)
 #parameter recovery
 pr = parameter_recovery_rw_vs_rw(ngames = 5,
@@ -304,7 +292,6 @@ pr$plot
 #differing learning rates for winning and losing:
 
 #Rw vs RW
-source("~/Advanced-cognitive-modeling/agents.R")
 
 #different parameter settings for the game and agents:
 #ntrials the number of times the agents play the game
@@ -359,8 +346,8 @@ df = data.frame(df)
 
 #lets fit in stan:
 
-setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/rw_win_lose_vs_rw.stan"
+
+filemodel = here::here("assignment2","stan_models","rw_win_lose_vs_rw.stan")
 
 mod = cmdstan_model(filemodel)
 
@@ -428,8 +415,6 @@ draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.facto
 
 #prior:
 #N(0,1) for all see   hist(inv_logit_scaled(rnorm(10000,0,1)))
-source("~/Advanced-cognitive-modeling/stan_helpers.R")
-source("~/Advanced-cognitive-modeling/agents.R")
 
 pr = parameter_recovery_rw_gen(ngames = 5,
                                start_trials = 75, 
@@ -446,8 +431,6 @@ pr$plot
 ```{r}
 #sensitivity analysis:
 
-source("~/Advanced-cognitive-modeling/stan_helpers.R")
-source("~/Advanced-cognitive-modeling/agents.R")
 
 ngamess = 5
 sens_mean = sensitivty_recovery_rw_gen(ngames = ngamess,
@@ -480,6 +463,7 @@ sens_sd$plot
 
 
 ```{r}
+#mutilevel modeling of the RW isn't done.
 
 #multilevel_model first see that simulation work
 #different parameter settings for the game and agents:
@@ -520,7 +504,6 @@ incentive2 = 0
 
 #make the agents play 100 times and plot it (included)
 subjects = 5
-source("~/Advanced-cognitive-modeling/agents.R")
 
 agg = rw_vs_rw_hier(subjects = subjects,
          ntrials = ntrials,
@@ -549,7 +532,7 @@ trialevel$rw1 = as.factor(trialevel$rw1)
 
 pairwise$pair = as.factor(pairwise$pair)
 #plot them:
-trialevel %>% mutate(x = rep(1:120,20)) %>% 
+trialevel %>% mutate(x = rep(1:ntrials,subjects)) %>% 
   pivot_longer(cols = c("expectation1","expectation2")) %>% inner_join(pairwise, by = "pair") %>% 
   ggplot() +
   geom_line(aes(x = x, y = value, col = name))+
@@ -561,116 +544,8 @@ trialevel %>% mutate(x = rep(1:120,20)) %>%
 
 ```
 
-
-```{r, dont run}
-
-
-#then we fit stan model first simply bias vs bais:
-
-source("~/Advanced-cognitive-modeling/agents.R")
-
-
-#different parameter settings for the game and agents:
-#ntrials the number of times the agents play the game
-ntrials = 120
-#alpha1_l is the learning rate for the first agent (matcher) when losing
-alpha1_l_mu = 0
-alpha1_l_sd = 0.01
-
-alpha1_w_mu = 0
-alpha1_w_sd = 0.01
-
-
-#alpha2_l is the learning rate for the first agent (non-matcher) when losing
-alpha2_l_mu = 0
-alpha2_l_sd = 0.01
-
-
-
-alpha2_w_mu = 0
-alpha2_w_sd = 0.01
-
-#bias1 is the bias of the first participant to answer 1. That is if it is 1 then agent 1 will choose 1 on the first trial, if 0.5 he picks at random
-bias1_mu = 0.2
-bias1_sd = 0.01
-
-#bias 2 is what bias1 is for agent2
-bias2_mu = 0.8
-bias2_sd = 0.01
-
-
-
-#the incentive of the first agent do you play after your belief (0) or do you choose the oppisite of your belief (1)
-incentive1 = 0
-#the incentive of the second agent do you play after your belief (0) or do you choose the oppisite of your belief (1)
-incentive2 = 0
-
-#make the agents play 100 times and plot it (included)
-subjects = 20
-
-
-
-agg = rw_vs_rw_hier(subjects = subjects,
-         ntrials = ntrials,
-         alpha1_l_mu,
-         alpha1_l_sd,
-         alpha1_w_mu,
-         alpha1_w_sd,
-         alpha2_l_mu,
-         alpha2_l_sd,
-         alpha2_w_mu,
-         alpha2_w_sd,
-         bias1_mu, 
-         bias2_mu,
-         bias1_sd, 
-         bias2_sd,
-         incentive1, 
-         incentive2)
-
-pairwise = agg$pairlevel
-trialevel = agg$triallevel
-
-data = list(rw1 = as.matrix(agg$rw1), rw2 = as.matrix(agg$rw2), fb_rw1 = as.matrix(agg$rw1_fb), fb_rw2 = as.matrix(agg$rw2_fb), trials = nrow(agg$rw1), subjects = ncol(agg$rw1), prior = 0)
-
-
-
-
-
-
-
-setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/bias_vs_bias_hier.stan"
-
-mod = cmdstan_model(filemodel)
-
-
-fit <- mod$sample(
-  data = data, 
-  seed = 123, 
-  chains = 4, 
-  parallel_chains = 4,
-  refresh = 500
-)
-
-
-
-
-fit$summary()
-
-mcmc_hist(fit$draws("bias_1_mu"))
-mcmc_hist(fit$draws("bias_2_mu"))
-mcmc_hist(fit$draws("bias_1_sd"))
-mcmc_hist(fit$draws("bias_2_sd"))
-
-
-```
-
-
-
 ```{r}
 #then we fit stan model first simply bias vs bais:
-
-source("~/Advanced-cognitive-modeling/agents.R")
 
 
 #different parameter settings for the game and agents:
@@ -764,10 +639,8 @@ datap = list(rw1 = as.matrix(agg$rw1),
             subjects = ncol(agg$rw1),
             prior = 1)
 
+filemodel = here::here("assignment2","stan_models","bias_vs_bias_hier.stan")
 
-
-setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/bias_vs_bias_hier.stan"
 
 mod = cmdstan_model(filemodel)
 
@@ -825,11 +698,11 @@ qq2 %>% ggplot(aes(x = value, fill = agent))+
 
 
 
-draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value))+facet_wrap(~name)+
-  geom_histogram(alpha = 0.8, fill = "darkblue", binwidth = 1, col = "black")+
-  geom_histogram(data = prior %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)),aes(x = value),alpha = 0.3, fill = "red", binwidth = 1, col = "black")+xlab(paste("choosing '1' on ",ntrials," trials"))+ylab("posterior density")+
-  geom_point(data = df %>% summarize(rw1 = sum(rw1)) %>% mutate(name = "sim_rw1"), aes(x = rw1, y = 0), col = "green",size = 6, shape = 17)+
-  geom_point(data = df %>% summarize(rw2 = sum(rw2)) %>% mutate(name = "sim_rw2"), aes(x = rw2, y = 0), col = "green",size = 6, shape = 17)
+#draws %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)) %>% ggplot(aes(x = value))+facet_wrap(~name)+
+#  geom_histogram(alpha = 0.8, fill = "darkblue", binwidth = 1, col = "black")+
+#  geom_histogram(data = prior %>% pivot_longer(cols = c("sim_rw1","sim_rw2"))%>% mutate(prior = as.factor(prior)),aes(x = value),alpha = 0.3, fill = "red", binwidth = 1, col = #"black")+xlab(paste("choosing '1' on ",ntrials," trials"))+ylab("posterior density")+
+#  geom_point(data = df %>% summarize(rw1 = sum(rw1)) %>% mutate(name = "sim_rw1"), aes(x = rw1, y = 0), col = "green",size = 6, shape = 17)+
+#  geom_point(data = df %>% summarize(rw2 = sum(rw2)) %>% mutate(name = "sim_rw2"), aes(x = rw2, y = 0), col = "green",size = 6, shape = 17)
 
 
 
@@ -857,7 +730,7 @@ pairwise
 
 
 
-```{r}
+```{r, fitting HGF}
 #fitting the hgf to a random bias agent
 
 source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
@@ -870,31 +743,28 @@ u = rm_agent(bias,trials)
 input = data.frame(kappa = 1.4, theta = 0.3, omega = -2,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
 data = hgf_agent(u,input)
 
+plothgfdata(data)
 
 
 ```
 
 
-
-
 ```{r}
-#inverting the HGF
+#hgf test
 
-source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
+source(here::here("assignment2", "hgf_agent.R"))
 
-bias = c(0.5,rep(c(0.2,0.8,0.3,0.9),3),0.5)
-trials = c(50,rep(c(20,30,20,20),3),50)
+bias = c(0.5,rep(c(0.1,0.9,0.1,0.9)),0.5)
+trials = c(100,rep(c(20,30,20,20)),100)
 
 u = rm_agent(bias,trials)
 
-input = data.frame(kappa = 1, theta = 1, omega = -3,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
+input = data.frame(kappa = 1.4, theta = 0.3, omega = -2.5,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
 dataq = hgf_agent(u,input)[-1,]
 
 plothgfdata(dataq)
 
-
-setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/3-level-hgf-no_pu.stan"
+filemodel = here::here("assignment2","stan_models","3-level-hgf-no_pu.stan")
 
 mod = cmdstan_model(filemodel)
 
@@ -902,195 +772,91 @@ data1 = list(ntrials = nrow(dataq), u = dataq$u, y = dataq$y)
 
 
 fit <- mod$sample(
-  data = data1, 
-  seed = 123, 
+  data = data1,
   chains = 4, 
   parallel_chains = 4,
-  refresh = 500
-)
+  refresh = 500,
+  #adapt_delta = 0.85
+  )
+
 
 library(tidybayes)
 library(cmdstanr)
 library(brms)
 
-posterior = as_draws_df(fit$draws())
+posterior = as_draws_df(fit$draws(c("theta","kappa","omega")))
   
+mcmc_trace(posterior)
 
-qq = posterior %>% tidybayes::gather_draws(mu1hat[trials], sa1hat[trials], mu1[trials], sa2[trials], mu2[trials], mu3[trials], sa3[trials]) %>% 
-  group_by(trials, .variable) %>% 
-  summarize(mean = mean(.value)) %>% 
-  pivot_wider(names_from = .variable,values_from = mean) %>% filter(trials != nrow(.))
-qq$trials = NA
-qq$trial = 1:nrow(qq)
-qq$y = dataq$y
-qq$u = dataq$u
+color_scheme_set("blue")
 
 
-qq1 = posterior %>% tidybayes::gather_draws(theta,omega,kappa) %>% 
-  group_by(.variable) %>% 
-  summarize(mean = mean(.value)) %>% 
-  pivot_wider(names_from = .variable,values_from = mean)
+np_cp <- nuts_params(fit)
 
+mcmc_parcoord(posterior, np = np_cp)
 
-plot_hgf_perceptual_uncertainty_fitted(qq,qq1)
+mcmc_pairs(posterior, np = np_cp, pars = c("theta","omega","kappa"),
+           off_diag_args = list(size = 0.75))
 
 
 plot_prior_post_update_nopu(fit,
                        real = input,
-                       levels = 3)
+                       levels = 2)
 
 
 ```
 
 ```{r}
-#diagnostics:
+#hgf test less trials
 
+source(here::here("assignment2", "hgf_agent.R"))
 
-```
-
-
-```{r, fig.height=7}
-library(patchwork)
-#inverting the HGF
-
-source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
-
-bias = c(0.5,rep(c(0.2,0.8,0.3,0.9)),0.5)
-trials = c(25,rep(c(20,30,20,20)),25)
-
-#bias = c(0.3,0.7)
-#trials = c(20,20)
-
+bias = c(0.5,rep(c(0.1,0.9,0.1,0.9)),0.5)
+trials = c(20,rep(c(20,30,20,20)),20)
 
 u = rm_agent(bias,trials)
 
-input = data.frame(kappa = 1, theta = 0.2, omega = -2,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4,alpha = 0.2, etaa = 0.9, etab = 0.1)
+input = data.frame(kappa = 1.4, theta = 0.3, omega = -2.5,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
+dataq = hgf_agent(u,input)[-1,]
 
+plothgfdata(dataq)
 
-data = hgf_agent_per_un(u,input)
-plot_hgf_perceptual_uncertainty(data)
-
-
-#plothgfdata(data)
-
-
-setwd("~/Advanced-cognitive-modeling")
-filemodel = "full_hgf.stan"
+filemodel = here::here("assignment2","stan_models","3-level-hgf-no_pu.stan")
 
 mod = cmdstan_model(filemodel)
-
-dataq = data[-1,]
 
 data1 = list(ntrials = nrow(dataq), u = dataq$u, y = dataq$y)
 
 
 fit <- mod$sample(
-  data = data1, 
-  seed = 123, 
+  data = data1,
   chains = 4, 
   parallel_chains = 4,
-  refresh = 500
-)
+  refresh = 500,
+  #adapt_delta = 0.85
+  )
 
 
 library(tidybayes)
+library(cmdstanr)
+library(brms)
 
-qq = fit$summary(c("omega","alpha","kappa","theta","etaa","etab"))
+posterior = as_draws_df(fit$draws(c("theta","kappa","omega")))
+  
+mcmc_trace(posterior)
 
-posterior = as_draws_df(fit$draws())
-
-#trial by trial estimates
-qq = posterior %>% gather_draws(mu1hat[trials], sa1hat[trials], mu1[trials], sa2[trials], mu2[trials], mu3[trials], sa3[trials]) %>% 
-  group_by(trials, .variable) %>% 
-  summarize(mean = mean(.value)) %>% 
-  pivot_wider(names_from = .variable,values_from = mean) %>% filter(trials != nrow(.))
-qq$trials = NA
-qq$trial = 1:nrow(qq)
-qq$y = dataq$y
-qq$u = dataq$u
+color_scheme_set("blue")
 
 
-qq1 = posterior %>% gather_draws(theta,alpha,omega,kappa,etaa,etab) %>% 
-  group_by(.variable) %>% 
-  summarize(mean = mean(.value)) %>% 
-  pivot_wider(names_from = .variable,values_from = mean)
+np_cp <- nuts_params(fit)
+
+mcmc_parcoord(posterior, np = np_cp)
+
+mcmc_pairs(posterior, np = np_cp, pars = c("theta","omega","kappa"),
+           off_diag_args = list(size = 0.75))
 
 
-plot_hgf_perceptual_uncertainty_fitted(qq,qq1)
-plot_prior_post_update(fit,
-                       real = input,
-                       levels = 3)
-
-```
-
-```{r, fig.height=7}
-library(patchwork)
-#inverting the HGF
-
-source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
-
-bias = c(0.5,rep(c(0.2,0.8,0.3,0.9)),0.5)
-trials = c(25,rep(c(20,30,20,20)),25)
-
-#bias = c(0.3,0.7)
-#trials = c(20,20)
-
-
-u = rm_agent(bias,trials)
-
-input = data.frame(kappa = 0, theta = 0.5, omega = -2,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4,alpha = 0.2, etaa = 0.9, etab = 0.1)
-
-
-data = hgf_agent_per_un(u,input)
-plot_hgf_perceptual_uncertainty(data)
-
-
-#plothgfdata(data)
-
-
-setwd("~/Advanced-cognitive-modeling")
-filemodel = "2_level_full_hgf.stan"
-
-mod = cmdstan_model(filemodel)
-
-dataq = data[-1,]
-
-data1 = list(ntrials = nrow(dataq), u = dataq$u, y = dataq$y)
-
-
-fit <- mod$sample(
-  data = data1, 
-  seed = 123, 
-  chains = 4, 
-  parallel_chains = 4,
-  refresh = 500
-)
-
-
-library(tidybayes)
-
-
-posterior = as_draws_df(fit$draws())
-
-#trial by trial estimates
-qq = posterior %>% gather_draws(mu1hat[trials], sa1hat[trials], mu1[trials], sa2[trials], mu2[trials], mu3[trials], sa3[trials]) %>% 
-  group_by(trials, .variable) %>% 
-  summarize(mean = mean(.value)) %>% 
-  pivot_wider(names_from = .variable,values_from = mean) %>% filter(trials != nrow(.))
-qq$trials = NA
-qq$trial = 1:nrow(qq)
-qq$y = dataq$y
-qq$u = dataq$u
-
-
-qq1 = posterior %>% gather_draws(theta,alpha,omega,kappa,etaa,etab) %>% 
-  group_by(.variable) %>% 
-  summarize(mean = mean(.value)) %>% 
-  pivot_wider(names_from = .variable,values_from = mean)
-
-
-plot_hgf_perceptual_uncertainty_fitted(qq,qq1)
-plot_prior_post_update(fit,
+plot_prior_post_update_nopu(fit,
                        real = input,
                        levels = 2)
 
@@ -1098,136 +864,273 @@ plot_prior_post_update(fit,
 
 
 
-
-
-
-
 ```{r}
-#diagnostics:
-draws_df <- as_draws_df(fit$draws())
+#hgf test 2-level
+source(here::here("assignment2", "hgf_agent.R"))
 
-ggplot(draws_df, aes(.iteration, theta, group = .chain, color = .chain)) +
-  geom_line(alpha = 0.5) +
-  theme_classic()
-
-draws_df %>% pivot_longer(cols = c("theta","p_theta")) %>% ggplot(aes(x = value,fill = name))+geom_histogram()+theme_classic()+facet_wrap(~name)
-
-draws_df %>% pivot_longer(cols = c("kappa","p_kappa")) %>% ggplot(aes(x = value,fill = name))+geom_histogram()+theme_classic()+facet_wrap(~name)
-
-draws_df %>% pivot_longer(cols = c("omega","p_omega")) %>% ggplot(aes(x = value,fill = name))+geom_histogram()+theme_classic()+facet_wrap(~name)
+bias = c(0.5,rep(c(0.1,0.9,0.1,0.9),1),0.5)
+trials = c(100,rep(c(20,30,20,20),1),100)
 
 
-
-```
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-library(bayesplot)
-
-dd = as_draws_df(fit$draws(c("theta","omega","p_theta","p_omega","kappa","p_kappa")))
-#bayesplot::mcmc_trace(dd)
-
-dd %>% select(theta,omega,p_theta,p_omega,kappa, p_kappa) %>% pivot_longer(cols = everything()) %>% ggplot(aes(x = value, fill = name))+geom_histogram()+theme_classic()+facet_wrap(~name, scales = "free_x")
-
-```
-
-
-
-```{r}
-#2 level or kalman filter:
-
-
-source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
-
-bias = c(0.5,rep(c(0.2,0.8,0.3,0.9),3),0.5)
-trials = c(75,rep(c(40,30,40,40),3),75)
 
 u = rm_agent(bias,trials)
 
-input = data.frame(kappa = 0, theta = -3, omega = -4,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
-data = hgf_agent(u,input)[-1,]
+input = data.frame(kappa = 0, theta = 0, omega = -2.5,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
+dataq = hgf_agent(u,input)[-1,]
 
-plothgfdata(data)
+plothgfdata(dataq)
 
 
 setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/2HGF.stan"
+filemodel = "stan_models/2-level-hgf-no_pu.stan"
 
 mod = cmdstan_model(filemodel)
 
-data1 = list(ntrials = nrow(data), u = data$u, y = data$y)
+data1 = list(ntrials = nrow(dataq), u = dataq$u, y = dataq$y, prior = 0)
+data1p = list(ntrials = nrow(dataq), u = dataq$u, y = dataq$y, prior = 1)
 
 
 fit <- mod$sample(
-  data = data1, 
-  seed = 123, 
+  seed = 111,
+  data = data1,
   chains = 4, 
   parallel_chains = 4,
-  refresh = 500
-)
+  refresh = 500,
+  #adapt_delta = 0.85
+  )
 
-dd = as_draws_df(fit$draws(c("omega","p_omega")))
-library(bayesplot)
-bayesplot::mcmc_trace(dd)
-summary(dd$omega)
 
-dd %>% select(omega,p_omega) %>% pivot_longer(cols = everything()) %>% ggplot(aes(x = value, fill = name))+geom_histogram()+theme_classic()
+fit_prior <- mod$sample(
+  seed = 111,
+  data = data1p,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500,
+  #adapt_delta = 0.85
+  )
+library(tidybayes)
+library(cmdstanr)
+library(brms)
 
+posterior = as_draws_df(fit$draws(c("theta","kappa","omega","sim_resp")))
+prior = as_draws_df(fit_prior$draws(c("theta","kappa","omega","sim_resp")))
+
+  
+mcmc_trace(posterior)
+
+color_scheme_set("blue")
+
+
+
+plot_prior_post_update_nopu(fit,
+                       real = input,
+                       levels = 2)
+
+posterior = as_draws_df(fit$draws())
+
+qq = posterior %>% tidybayes::gather_draws(mu1hat[trials], sa1hat[trials], mu1[trials], sa2[trials], mu2[trials], mu3[trials], sa3[trials],sim_resp_t[trials]) %>% 
+  group_by(trials, .variable) %>% 
+  summarize(mean = mean(.value)) %>% 
+  pivot_wider(names_from = .variable,values_from = mean) %>% filter(trials != nrow(.))
+
+qq$trials = NA
+qq$trial = 1:nrow(qq)
+qq$y = dataq$y
+qq$u = dataq$u
+
+source(here::here("assignment2", "hgf_agent.R"))
+
+
+plothgfdata(dataq)
+
+plothgfdata(qq[-1,])
 
 ```
-
 
 
 ```{r}
+library(tidybayes)
+library(cmdstanr)
+library(brms)
 
-
-source("/home/jespere/Advanced-cognitive-modeling/assignment2/hgf_agent.R")
-
-bias = c(rep(c(0.2,0.8,0.3,0.9),6), 0.1)
-trials = c(rep(c(20,20,20,10),6), 10)
-
-u = rm_agent(bias,trials)
-
-input = data.frame(kappa = 0, theta = -3, omega = -2,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
-data = hgf_agent(u,input)[-1,]
-
-plothgfdata(data)
+seed = 123
+times = 2
+real_omega = seq(-8,-1,0.2)
+#hgf parameter recovery
+source(here::here("assignment2", "hgf_agent.R"))
 
 
 setwd("~/Advanced-cognitive-modeling/assignment2")
-filemodel = "stan_models/2HGF.stan"
+filemodel = "stan_models/2-level-hgf-no_pu_pr.stan"
 
 mod = cmdstan_model(filemodel)
 
-data1 = list(ntrials = nrow(data), u = data$u, y = data$y)
+bias = c(0.8,0.2)
+trials = c(10,10)
+dff = data.frame(bias = bias, trials = trials)
 
 
-fit <- mod$sample(
-  data = data1, 
-  seed = 123, 
-  chains = 4, 
-  parallel_chains = 4,
-  refresh = 500
-)
+
+df5 = purrr::map_df(real_omega, pr_hgf_2level, times = 5)
+df5 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
 
 
-dd = as_draws_df(fit$draws(c("omega","p_omega")))
-library(bayesplot)
-bayesplot::mcmc_trace(dd)
-summary(dd$omega)
-
-dd %>% select(omega,p_omega) %>% pivot_longer(cols = everything()) %>% ggplot(aes(x = value, fill = name))+geom_histogram()+theme_classic()+geom_vline(xintercept = -2)
+df10 = purrr::map_df(real_omega, pr_hgf_2level, times = 10)
+df10 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
 
 
+df15 = purrr::map_df(real_omega, pr_hgf_2level, times = 15)
+df15 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+df20 = purrr::map_df(real_omega, pr_hgf_2level, times = 20)
+df20 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df25 = purrr::map_df(real_omega, pr_hgf_2level, times = 25)
+df25 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+df30 = purrr::map_df(real_omega, pr_hgf_2level, times = 30)
+df30 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+df35 = purrr::map_df(real_omega, pr_hgf_2level, times = 35)
+df35 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df = rbind(df5,df10,df15,df20,df25,df30,df35)
+df %>% mutate(trials = as.factor(trials)) %>% ggplot()+geom_pointrange(aes(x = real, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+facet_wrap(~trials)+geom_abline(slope = 1, intercept = 0)
+
+
+
+bias = c(0.8,0.2)
+trials = c(20,20)
+dff = data.frame(bias = bias, trials = trials)
+```
+
+
+```{r}
+df2 = purrr::map_df(real_omega, pr_hgf_2level, times = 2)
+df2 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df5 = purrr::map_df(real_omega, pr_hgf_2level, times = 5)
+df5 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df10 = purrr::map_df(real_omega, pr_hgf_2level, times = 10)
+df10 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+df15 = purrr::map_df(real_omega, pr_hgf_2level, times = 15)
+df15 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+df20 = purrr::map_df(real_omega, pr_hgf_2level, times = 20)
+df20 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+
+
+df = rbind(df2,df5,df10, df15,df20)
+df %>% mutate(trials = as.factor(trials*2)) %>% ggplot()+geom_pointrange(aes(x = real, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+facet_wrap(~trials)+geom_abline(slope = 1, intercept = 0)
+```
+
+
+```{r}
+bias = c(0.8,0.2)
+trials = c(40,40)
+dff = data.frame(bias = bias, trials = trials)
+
+
+df1 = purrr::map_df(real_omega, pr_hgf_2level, times = 1)
+df1 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df2 = purrr::map_df(real_omega, pr_hgf_2level, times = 2)
+df2 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df3 = purrr::map_df(real_omega, pr_hgf_2level, times = 3)
+df3 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df4 = purrr::map_df(real_omega, pr_hgf_2level, times = 4)
+df4 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df5 = purrr::map_df(real_omega, pr_hgf_2level, times = 5)
+df5 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+df = rbind(df1,df2,df3, df4,df5)
+df %>% mutate(trials = as.factor(trials*4)) %>% ggplot()+geom_pointrange(aes(x = real, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+facet_wrap(~trials)+geom_abline(slope = 1, intercept = 0)
+```
+
+
+```{r}
+bias = c(0.8,0.2)
+trials = c(80,80)
+dff = data.frame(bias = bias, trials = trials)
+
+
+df1 = purrr::map_df(real_omega, pr_hgf_2level, times = 1)
+df1 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+df2 = purrr::map_df(real_omega, pr_hgf_2level, times = 2)
+df2 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+df3 = purrr::map_df(real_omega, pr_hgf_2level, times = 3)
+df3 %>% ggplot()+geom_pointrange(aes(x = real_omega, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+geom_abline(slope = 1, intercept = 0)
+
+
+df = rbind(df1,df2,df3)
+df %>% mutate(trials = as.factor(trials*8)) %>% ggplot()+geom_pointrange(aes(x = real, y = mean, ymin = mean-sd, ymax = mean+sd))+xlab("Simulated values")+ylab("Recovered values")+theme_classic()+facet_wrap(~trials)+geom_abline(slope = 1, intercept = 0)
 
 ```
+
+```{r}
+#hgf sensitvity
+
+library(tidybayes)
+library(cmdstanr)
+library(brms)
+
+seed = 123
+times = 2
+real_omega = seq(-8,-1,0.2)
+#hgf parameter recovery
+source(here::here("assignment2", "hgf_agent.R"))
+
+
+setwd("~/Advanced-cognitive-modeling/assignment2")
+filemodel = "stan_models/2-level-hgf-no_pu_pr.stan"
+
+mod = cmdstan_model(filemodel)
+
+bias = c(0.8,0.2)
+trials = c(40,40)
+dff = data.frame(bias = bias, trials = trials)
+
+means = seq(-8,-1, by = 0.5)
+sds = seq(0.1,5, by = 0.5)
+omega = seq(-5,-1,by = 1)
+
+
+#hgf parameter recovery
+source(here::here("assignment2", "hgf_agent.R"))
+
+
+df = expand.grid(means = means,sds = sds, omega = omega)
+
+dfq = purrr::pmap_df(df, sensitivity_hgf_2level)
+
+dfq %>% ggplot(aes(x = priormean, y = mean))+geom_point()+facet_grid(real~priorsd, labeller = label_both)+
+  ylab("Gathered mean")+xlab("prior mean")+
+  geom_hline(aes(yintercept = real))+
+  theme_bw()+
+    theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18),
+    legend.text = element_text(size = 18),
+    strip.text = element_text(size = 18)
+  )
+
+```
+
 

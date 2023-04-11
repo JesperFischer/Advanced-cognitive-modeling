@@ -1,8 +1,9 @@
-
 data {
   int<lower=0> ntrials;
   int<lower=0,upper=1> y[ntrials];
   int<lower=0,upper=1> u[ntrials];
+  int<lower=0,upper=1> ur[ntrials];
+  
   
   
   
@@ -12,17 +13,16 @@ parameters {
   real omega;
   //real<lower=0> beta;
   
-  real <lower = 0.01, upper = 0.8> alpha;
+  real <lower = 0, upper = 1> nu;
+  real <lower = 0> kappa;
+  real <lower = 0> theta;
+  
   
 }
 
 
 
 transformed parameters {
-  real kappa = 0;
-  real theta = 0;
-  real etaa = 1;
-  real etab = 0;
   
   real mu2[ntrials+1];
   real mu3[ntrials+1];
@@ -39,7 +39,13 @@ transformed parameters {
   real w2[ntrials];
   real pi3hat[ntrials];
   real pi3[ntrials];
+  real belief[ntrials];
   
+  //real kappa;
+  //real theta;
+  
+  //kappa = 0;
+  //theta = 0;
   
   mu2[1] = 0;
   sa2[1] = 2;
@@ -47,6 +53,8 @@ transformed parameters {
   sa3[1] = 2;
   
   mu1hat[1] = 0.5;
+  belief[1] = 0.5;
+  
   sa2hat[1] = 999;
   sa1hat[1] = 999;
   pi3hat[1] = 999;
@@ -56,7 +64,7 @@ transformed parameters {
 
   for (t in 2:ntrials) {
     mu1hat[t] = inv_logit(mu2[t-1]);
-    sa2hat[t] = sa2[t-1]+exp(omega);
+    sa2hat[t] = sa2[t-1]+exp(kappa*mu3[t-1]+omega);
     sa1hat[t] = mu1hat[t]*(1-mu1hat[t]);
     pi3hat[t] = 1/(sa3[t-1]+theta);
     
@@ -67,10 +75,8 @@ transformed parameters {
     sa2[t] = 1/((1/sa2hat[t])+sa1hat[t]);
     
    
-    //update first, second and third level:
-    mu1[t] = (exp(-((u[t]-etaa)^2)/(2*alpha))*(inv_logit(mu2[t-1]))) / ((exp(-((u[t]-etaa)^2)/(2*alpha))*(inv_logit(mu2[t-1])))+(exp(-((u[t]-etab)^2)/(2*alpha))*(1-inv_logit(mu2[t-1]))));
-    
-    da[t] = mu1[t]-mu1hat[t];
+
+    da[t] = u[t]-mu1hat[t];
     
     
     mu2[t] = mu2[t-1]+da[t]*sa2[t];    
@@ -84,6 +90,8 @@ transformed parameters {
     sa3[t] = 1/pi3[t];
     
     mu3[t] = mu3[t-1]+sa3[t]*(kappa/2)*w2[t]*da2[t];
+    
+    belief[t] = mu1hat[t]+(1/(1+nu))*(ur[t]-mu1hat[t]);
   
     
 }
@@ -95,21 +103,25 @@ transformed parameters {
 
 model {
     //priors
-
+  
+    target += normal_lpdf(omega | -6,5);
+    target += lognormal_lpdf(nu | 0, 0.5);
+    target += normal_lpdf(theta | -3,2);
+    target += lognormal_lpdf(kappa | 0,0.4);
     
-    target += normal_lpdf(omega | -6,3);
-    target += beta_lpdf(alpha | 1,1);
     
     //likelihood
-    target += bernoulli_lpmf(y|mu1hat);
+    for(i in 1:ntrials)
+      target += bernoulli_lpmf(y[i]|belief[i]);
   }
 
 
 
 
 generated quantities{
-  real p_omega = normal_rng(-6,3);
-  real p_alpha = beta_rng(1,1);
+  real p_omega = normal_rng(-6,5);
+  real p_nu = lognormal_rng(0,0.5);
   
 
 }
+

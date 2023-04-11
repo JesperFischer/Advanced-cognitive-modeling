@@ -40,7 +40,7 @@ transformed parameters {
     
   for (t in 2:ntrials) {
 
-    sa2hat[t] = sa2[t-1]+exp(omega);
+    sa2hat[t] = sa2[t-1]+exp(kappa*mu3[t-1]+omega);
     mu1hat[t] = inv_logit(mu2[t-1]);
     sa1hat[t] = mu1hat[t]*(1-mu1hat[t]);
     

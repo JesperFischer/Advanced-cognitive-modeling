@@ -1,0 +1,297 @@
+---
+title: "dsf"
+author: "Jesper Fischer Ehmsen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(tidyverse)
+library(cmdstanr)
+library(patchwork)
+library(here)
+```
+
+
+```{r, fig.height=5, fig.width=8}
+plot = function(df){
+
+lvl1 = df %>% ggplot(aes())+
+ ggtitle("Prediction")+
+ #belief on input
+#Actual input
+ geom_point(aes(x = trial, y = ifelse(u == 1, 1.1, -0.1)), col = "purple")+
+ geom_pointrange(aes(x = trial, y = mu1, ymin = mu1-input$alpha, ymax = mu1+input$alpha), col = "yellow")+
+ #underlying probability:
+ geom_line(aes(x = 1:length(u), y = ur), col = "black")+
+ #prediction on underlying probability:
+ geom_line(aes(x = trial, y = mu1hat), col = "#c44e52")+
+ #uncertainty on this belief:
+ geom_ribbon(aes(x = trial, ymax = mu1hat+sa1hat, ymin = mu1hat-sa1hat), fill = "#c44e52", alpha = 0.3)+
+ geom_line(aes(x = trial, y = belief), col = "green")+
+ theme_classic()+
+ scale_y_continuous(breaks = seq(0,1,by = 0.1))+
+ coord_cartesian(ylim = c(-0.2,1.2))+
+ theme(text = element_text(size=12))
+
+
+
+#Second level:
+lvl2 = df %>% ggplot(aes())+ggtitle("Expectations")+
+#belief
+geom_line(aes(x = trial, y = mu2), col = "#4c72b0")+
+#uncertainty:
+geom_ribbon(aes(x = trial, ymax = mu2+sa2, ymin = mu2-sa2), col = "#4c72b0", alpha = 0.3)+
+theme_classic()+
+theme(text = element_text(size=12))
+
+
+#third level:
+
+lvl3 = df %>% ggplot(aes())+ggtitle("Volatility")+
+#belief
+geom_line(aes(x = trial, y = mu3), col = "black")+
+#uncertainty:
+geom_ribbon(aes(x = trial, ymax = mu3+sa3, ymin = mu3-sa3), fill  = "black", alpha = 0.3)+
+theme_classic()+
+theme(text = element_text(size=12))
+
+
+lvl3/lvl2/lvl1
+
+}
+```
+
+
+```{r, fig.height=5, fig.width=8}
+source(here("assignment2","hgf_agent.R"))
+
+bias = rep(rep(c(0.75,0.5,0.4,0.25)),3)
+trials = rep(rep(30,4),3)
+
+input = data.frame(theta = 0, omega = -2, kappa = 0, Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0, Inital_prec3 = 4, nu = 1, alpha = 0.01, etaa = 1, etab = 0)
+
+u = rm_agent(bias, trials)
+
+dataf = data.frame(u = u, ur = rep(bias, each = 30))
+
+df = hgf_agent_nu_pu(dataf, input)
+
+
+
+plot(df)
+
+df = df[-1,]
+
+data = list(ntrials = nrow(df), u = df$u, ur = df$ur, y = df$y)
+
+file = here::here("2hgf_pu_nu.stan")
+
+mod = cmdstanr::cmdstan_model(file)
+
+
+fit <- mod$sample(
+  data = data, 
+  seed = 123, 
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500
+)
+
+priors = as_draws_df(fit$draws(c("p_omega","p_nu","p_alpha"))) %>% select("p_omega","p_nu","p_alpha") %>% rename(omega = p_omega, nu = p_nu, alpha = p_alpha) %>%  pivot_longer(everything())%>% mutate(prior = 1)
+
+
+post = as_draws_df(fit$draws(c("omega","nu","alpha"))) %>% select("omega","nu","alpha") %>% pivot_longer(everything()) %>% mutate(prior = 0)
+
+df1 = rbind(priors,post)
+
+
+params = data.frame(nu = input$nu,alpha = input$alpha,omega = input$omega) %>% pivot_longer(everything())
+
+df1 %>% ggplot(aes(x=value, fill = as.factor(prior)))+facet_wrap(~name, scales = "free")+geom_histogram()+theme_classic()+geom_vline(data = params, aes(xintercept = value))
+
+
+```
+
+
+
+```{r}
+plot1 = function(df){
+
+lvl1 = df %>% ggplot(aes())+
+ ggtitle("Prediction")+
+ #belief on input
+#Actual input
+ geom_point(aes(x = trial, y = y), col = "blue")+
+  
+ #underlying probability:
+ geom_line(aes(x = 1:length(u), y = ur), col = "black")+
+ #prediction on underlying probability:
+ geom_line(aes(x = trial, y = mu1hat), col = "#c44e52")+
+ #uncertainty on this belief:
+ geom_ribbon(aes(x = trial, ymax = mu1hat+sa1hat, ymin = mu1hat-sa1hat), fill = "#c44e52", alpha = 0.3)+
+ geom_line(aes(x = trial, y = belief), col = "green")+
+ theme_classic()+
+ scale_y_continuous(breaks = seq(0,1,by = 0.1))+
+ coord_cartesian(ylim = c(-0.2,1.2))+
+ theme(text = element_text(size=12))
+
+
+
+#Second level:
+lvl2 = df %>% ggplot(aes())+ggtitle("Expectations")+
+#belief
+geom_line(aes(x = trial, y = mu2), col = "#4c72b0")+
+#uncertainty:
+geom_ribbon(aes(x = trial, ymax = mu2+sa2, ymin = mu2-sa2), col = "#4c72b0", alpha = 0.3)+
+theme_classic()+
+theme(text = element_text(size=12))
+
+
+#third level:
+
+lvl3 = df %>% ggplot(aes())+ggtitle("Volatility")+
+#belief
+geom_line(aes(x = trial, y = mu3), col = "black")+
+#uncertainty:
+geom_ribbon(aes(x = trial, ymax = mu3+sa3, ymin = mu3-sa3), fill  = "black", alpha = 0.3)+
+theme_classic()+
+theme(text = element_text(size=12))
+
+
+lvl3/lvl2/lvl1
+
+}
+```
+
+
+
+```{r fig.height=10, fig.width=10}
+library(tidyverse)
+library(patchwork)
+source(here("assignment2","hgf_agent.R"))
+
+bias = rep(rep(c(0.75,0.2,0.85,0.15)),2)
+trials = rep(rep(50,4),2)
+
+input = data.frame(theta = 0, omega = -4, kappa = 0, Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0, Inital_prec3 = 4, nu = 3, z = 1)
+
+u = rm_agent(bias, trials)
+
+dataf = data.frame(u = u, ur = rep(bias, each = 50))
+
+df = hgf_agent_nu(dataf, input)
+
+
+
+plot1(df)
+
+df = df[-1,]
+
+data = list(ntrials = nrow(df), ur = df$ur, y = df$y)
+
+file = here::here("2hgf_nu.stan")
+
+mod = cmdstanr::cmdstan_model(file)
+
+
+fit <- mod$sample(
+  data = data,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500
+)
+
+library(posterior)
+draws = as_draws_df(fit$draws())
+draws %>% ggplot(aes(x = nu, y = z))+geom_point()+theme_classic()
+
+priors = as_draws_df(fit$draws(c("p_omega","p_nu"))) %>% select("p_omega","p_nu") %>% rename(omega = p_omega, nu = p_nu) %>%  pivot_longer(everything())%>% mutate(prior = 1)
+
+
+post = as_draws_df(fit$draws(c("omega","nu"))) %>% select("omega","nu") %>% pivot_longer(everything()) %>% mutate(prior = 0)
+
+df1 = rbind(priors,post)
+
+
+params = data.frame(nu = input$nu,omega = input$omega) %>% pivot_longer(everything())
+
+df1 %>% ggplot(aes(x=value, fill = as.factor(prior)))+facet_wrap(~name, scales = "free")+geom_histogram()+theme_classic()+geom_vline(data = params, aes(xintercept = value))
+
+
+fit$summary() %>% filter(str_detect(variable, "mu1hat")) %>% select(variable,mean,sd,q5,q95) %>% mutate(trials = 1:359) %>% ggplot(aes(x = trials, y = mean))+geom_ribbon(aes(x = trials, y = mean, ymin = q5, ymax = q95))
+
+df4
+```
+
+
+```{r, fig.height= 8, fig.width=16}
+
+
+source(here("assignment2","hgf_agent.R"))
+
+bias = rep(c(0.8,0.2,0.5,0.8))
+trials = rep(c(50,50,10,50))
+
+input = data.frame(theta = 0, omegan = -4,omegapain = -4, kappa = 0, Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0, Inital_prec3 = 4)
+
+u = rm_agent(bias, trials)
+
+pain = rbinom(length(u),1,0.5)
+
+us = data.frame(u = u,pain = pain)
+
+dd = hgf_agent_omega2(us,input)
+
+dd$u = lag(dd$u)
+
+dd %>% ggplot(aes())+geom_point(aes(x = trial, y = u, col = ifelse(pain == 1, "red","green")))+
+  geom_point(aes(x = trial, y = y+0.1), col = "blue")+
+  geom_line(aes(x = trial, y = mu1hat))+theme_classic()+
+  geom_line(aes(x = trial, y = rep(bias,trials)))+
+  scale_color_manual("",values = c("green","red"))
+
+dd$dif = dd$mu1hat-lag(dd$mu1hat, n = 1)
+dd %>% ggplot(aes(x = as.factor(pain), y = abs(dif)))+geom_boxplot()
+
+plot(df)
+
+df = dd[-1,]
+
+data = list(ntrials = nrow(df), u = df$u, pain = df$pain, y = df$y)
+
+file = here::here("2hgf_2omega.stan")
+
+mod = cmdstanr::cmdstan_model(file)
+
+
+fit <- mod$sample(
+  data = data, 
+  seed = 123, 
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500
+)
+
+priors = as_draws_df(fit$draws(c("p_omega","p_nu","p_alpha"))) %>% select("p_omega","p_nu","p_alpha") %>% rename(omega = p_omega, nu = p_nu, alpha = p_alpha) %>%  pivot_longer(everything())%>% mutate(prior = 1)
+
+
+post = as_draws_df(fit$draws(c("omega","nu","alpha"))) %>% select("omega","nu","alpha") %>% pivot_longer(everything()) %>% mutate(prior = 0)
+
+df1 = rbind(priors,post)
+
+
+params = data.frame(nu = input$nu,alpha = input$alpha,omega = input$omega) %>% pivot_longer(everything())
+
+df1 %>% ggplot(aes(x=value, fill = as.factor(prior)))+facet_wrap(~name, scales = "free")+geom_histogram()+theme_classic()+geom_vline(data = params, aes(xintercept = value))
+
+
+
+```
+
