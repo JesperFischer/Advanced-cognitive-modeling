@@ -1,0 +1,67 @@
+---
+title: "assignment3"
+author: "Jesper Fischer Ehmsen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set
+library(tidyverse)
+library(cmdstanr)
+library(ggtext)
+library(posterior)
+library(bayesplot)
+library(ggdist)
+library(brms)
+library(LaplacesDemon)
+library(furrr)
+library(extraDistr)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+hist(rprop(10000,10,0.5))
+
+
+
+
+source(here::here("Assignment 3", "scripts","src.R"))
+
+bias = seq(0.1,0.9,by = 0.1)
+
+precision = seq(5,10,by = 5)
+
+
+bias = expand.grid(bias = bias, precision = precision)
+
+bias$id = 1:nrow(bias)
+
+data_list <- split(bias, bias$id)
+
+plan(multisession, workers = 60)
+
+results = future_map(data_list, ~simple_bayes(.x, 100))
+
+
+df = map_dfr(results, bind_rows)
+
+
+
+df$source22 = as.factor(df$source22)
+
+df$source222 = df$source2/9
+
+df %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source22), group = source22))+geom_line(position = "dodge")+facet_grid(precision~bias)+theme_classic()
+
+
+
+```
+
+
