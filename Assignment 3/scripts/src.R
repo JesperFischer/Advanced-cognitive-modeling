@@ -18,7 +18,15 @@ simple_bayes = function(bias, ntrials){
     
     outcome = inv_logit_scaled(0.5*logit_scaled(source11/9)+0.5*logit_scaled(source2/9))
     
-    data = rbind(data,data.frame(source1 = source1, source2 = source2, precision = bias$precision, bias = bias$bias, source22 = source22, outcome = round(outcome,1)))
+    data = rbind(data,data.frame(source1 = source1,
+                                 source1_cat = source11, 
+                                 source2 = source2/9, 
+                                 source2_dif = source22, 
+                                 source2_cat = source2, 
+                                 outcome = round(outcome,1), 
+                                 outcome_cat = outcome*9,
+                                 precision = bias$precision, 
+                                 bias = bias$bias))
     }
   
   
