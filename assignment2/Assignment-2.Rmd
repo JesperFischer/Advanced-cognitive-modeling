@@ -740,10 +740,13 @@ trials = c(75,rep(c(20,30),3),75)
 
 u = rm_agent(bias,trials)
 
-input = data.frame(kappa = 1.4, theta = 0.5, omega = -2.2,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
-data = hgf_agent(u,input)
+input = data.frame(kappa = 1.4, theta = 0.5, omega = -4, beta = 5,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
+
+data = hgf_agentt(u,input)
 
 plothgfdata(data)
+
+
 
 
 ```
@@ -751,16 +754,20 @@ plothgfdata(data)
 
 ```{r}
 #hgf test
+library(tidybayes)
+library(cmdstanr)
+library(brms)
+
 
 source(here::here("assignment2", "hgf_agent.R"))
 
-bias = c(0.5,rep(c(0.2,0.8),3),0.5)
-trials = c(75,rep(c(20,30),3),75)
+bias = c(0.5,rep(c(0.2,0.8),2),0.5)
+trials = c(30,rep(c(15,20),2),30)
 
 u = rm_agent(bias,trials)
 
-input = data.frame(kappa = 1.4, theta = 0.5, omega = -2.2,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
-data = hgf_agent(u,input)[-1,]
+input = data.frame(kappa = 1.4, theta = 0.5, omega = -2, beta = 10,Inital_prec2 = 4,Inital_mu2 = 0,Inital_mu3 = 0,Inital_prec3 = 4)
+data = hgf_agentt(u,input)[-1,]
 
 plothgfdata(data)
 
@@ -776,13 +783,9 @@ fit <- mod$sample(
   chains = 4, 
   parallel_chains = 4,
   refresh = 500,
-  #adapt_delta = 0.85
+  adapt_delta = 0.9
   )
 
-
-library(tidybayes)
-library(cmdstanr)
-library(brms)
 
 posterior = as_draws_df(fit$draws(c("theta","kappa","omega")))
   
@@ -801,7 +804,7 @@ mcmc_pairs(posterior, np = np_cp, pars = c("theta","omega","kappa"),
 
 plot_prior_post_update_nopu(fit,
                        real = input,
-                       levels = 2)
+                       levels = 3)
 
 
 ```
@@ -858,8 +861,11 @@ mcmc_pairs(posterior, np = np_cp, pars = c("theta","omega","kappa"),
 
 plot_prior_post_update_nopu(fit,
                        real = input,
-                       levels = 2)
+                       levels = 3)
 
+
+posterior = as_draws_df(fit$draws(c("p_theta","p_kappa","p_omega")))
+  
 ```
 
 

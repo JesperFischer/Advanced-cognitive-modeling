@@ -1,3 +1,111 @@
+
+
+
+hgf_agentt = function(u, input){
+  
+  sigmoid = function(x) {
+    1 / (1 + exp(-x))}
+  
+
+  data <- data.frame(u)
+  
+  theta = input$theta
+  kappa = input$kappa
+  omega = input$omega
+  beta = input$beta
+  
+  
+  ntrials = nrow(data)
+  
+  mu1hat = array(NA,ntrials)
+  pe1 = array(NA,ntrials)
+  pe2 = array(NA,ntrials)
+  w2 = array(NA,ntrials)
+  r2 = array(NA,ntrials)
+  pi3hat = array(NA,ntrials)
+  pi3 = array(NA,ntrials)
+  sa1hat = array(NA,ntrials)
+  mu2 = array(NA,ntrials)
+  sa2 = array(NA,ntrials)
+  sa2hat = array(NA,ntrials)
+  mu3 = array(NA,ntrials)
+  sa3 = array(NA,ntrials)
+  y = array(NA,ntrials)
+  belief = array(NA,ntrials)
+  
+  
+  mu2[1] = input$Inital_mu2
+  sa2[1] = input$Inital_prec2
+  mu3[1] = input$Inital_mu3
+  sa3[1] = input$Inital_prec3
+  
+  
+  for(t in 2:ntrials){
+    
+    mu1hat[t] = sigmoid(mu2[t-1])
+    
+    sa2hat[t] = sa2[t-1]+exp(kappa*mu3[t-1]+omega)
+    
+    sa1hat[t] = mu1hat[t]*(1-mu1hat[t])
+    
+    pe1[t] = u[t-1]-mu1hat[t]
+    
+    
+    
+    
+    sa2[t] = 1/((1/sa2hat[t])+sa1hat[t])
+    mu2[t] = (mu2[t-1]+pe1[t]*sa2[t])
+    
+  
+    pe2[t] = ((sa2[t]+(mu2[t]-mu2[t-1])^2)/(sa2[t-1]+exp(kappa*mu3[t-1]+omega)))-1
+    
+    r2[t] = (exp(kappa*mu3[t-1]+omega)-sa2[t-1])/(sa2[t-1]+exp(kappa*mu3[t-1]+omega))
+    
+    w2[t] = exp(kappa*mu3[t-1]+omega)/(sa2[t-1]+exp(kappa*mu3[t-1]+omega))
+    
+    pi3hat[t] = 1/(sa3[t-1]+theta)
+    
+    pi3[t] = pi3hat[t]+(kappa^2/2)*w2[t]*(w2[t]+r2[t]*pe2[t])
+    
+    sa3[t] = 1/pi3[t]
+    
+    mu3[t] = mu3[t-1]+sa3[t]*(kappa/2)*w2[t]*pe2[t]
+    
+    belief[t] = mu1hat[t]^beta/(mu1hat[t]^beta+(1-mu1hat[t])^beta)
+    
+    y[t] = rbinom(1,1,belief[t])
+  
+    }
+  
+  data$sa2hat = sa2hat
+  data$mu1hat = mu1hat
+  data$sa1hat = sa1hat
+  data$pe1 = pe1
+  data$pe2 = pe2
+  data$mu2 = mu2
+  data$r2 = r2
+  data$w2 = w2
+  data$pi3hat = pi3hat
+  data$pi3 = pi3
+  data$sa3 = sa3
+  data$mu3 = mu3
+  data$sa2 = sa2
+  data$trial = 1:nrow(data)
+  data$y = y
+  data$belief = belief
+  
+  return(data)
+}
+
+
+
+
+
+
+
+
+
+
 rm_agent = function(bias,trials){
   u = c()
   for (i in 1:length(trials)){
@@ -1047,8 +1155,9 @@ plot_prior_post_update_nopu = function(model,real,levels){
     theta = posterior %>% pivot_longer(cols = c("theta","p_theta")) %>% mutate() %>% ggplot(aes(x = value,fill = name))+geom_histogram()+theme_classic()+geom_vline(xintercept = input$theta)
     kappa = posterior %>% pivot_longer(cols = c("kappa","p_kappa")) %>% mutate() %>% ggplot(aes(x = value,fill = name))+geom_histogram()+theme_classic()+geom_vline(xintercept = input$kappa)
     omega = posterior %>% pivot_longer(cols = c("omega","p_omega")) %>% mutate() %>% ggplot(aes(x = value,fill = name))+geom_histogram()+theme_classic()+geom_vline(xintercept = input$omega)
-
-    return((theta+kappa)/(omega))  
+    beta = posterior %>% pivot_longer(cols = c("beta","p_beta")) %>% mutate() %>% ggplot(aes(x = value,fill = name))+geom_histogram()+theme_classic()+geom_vline(xintercept = input$beta)
+    
+    return((theta+kappa)/(omega+beta))  
   }else{
     omega = posterior %>% pivot_longer(cols = c("omega","p_omega")) %>% mutate() %>% ggplot(aes(x = value,fill = name))+geom_histogram()+theme_classic()+geom_vline(xintercept = input$omega)
 

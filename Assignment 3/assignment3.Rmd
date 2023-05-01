@@ -9,8 +9,10 @@ output: html_document
 knitr::opts_chunk$set
 library(tidyverse)
 library(ggtext)
+library(cmdstanr)
 library(posterior)
 library(bayesplot)
+library(loo)
 library(ggdist)
 library(brms)
 library(LaplacesDemon)
@@ -25,39 +27,538 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 
+
+
 ```{r, fig.height=10, fig.width=10}
-hist(rprop(10000,10,0.5))
-
-
-
-
 source(here::here("Assignment 3", "scripts","src.R"))
 
 bias = seq(0.1,0.9,by = 0.1)
-
-precision = seq(5,10,by = 5)
-
-
-bias = expand.grid(bias = bias, precision = precision)
+kappa = seq(5,10,by = 5)
+kappa2 = 1000
+bias = expand.grid(bias = bias, kappa = kappa, kappa2 = kappa2)
 
 bias$id = 1:nrow(bias)
 
 data_list <- split(bias, bias$id)
 
-plan(multisession, workers = 60)
+plan(multisession, workers = 10)
 
-results = future_map(data_list, ~simple_bayes(.x, 300))
+
+results = future_map(data_list, ~simple_bayes(.x, 100))
+
+df = map_dfr(results, bind_rows)
+
+df %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source2_dif)))+geom_line(position = "dodge")+facet_grid(kappa~bias)+theme_classic()
+
+```
+
+
+
+
+```{r}
+
+source(here::here("Assignment 3", "scripts","src.R"))
+
+bias = 0.5
+kappa = 10
+kappa2 = 30
+bias = data.frame(bias = bias, kappa = kappa, kappa2 = kappa2)
+ntrials = 100
+dfb = simple_bayes(bias, ntrials)
+
+data = list(N = nrow(dfb), rating1 = round(dfb$source1_cat,0), group = round(dfb$source2_cat,0), rating2 = round(dfb$outcome_cat,0))
+
+mod = cmdstan_model(here::here("Assignment 3","stan","bias_agent.stan"))
+
+fit <- mod$sample(
+  data = data,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+)
+
+post = as_draws_df(fit$draws())
+
+
+plot_prior_posterior_update(fit, parameters = c("bias","kappa","kappa2"), reals = c(bias = bias$bias, kappa = bias$kappa, kappa2 = bias$kappa2))
+
+
+
+dfb %>% ggplot(aes(x = round(dfb$outcome_cat,0)))+geom_histogram()
+
+post %>% select(starts_with("sim_rating2")) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(value)) %>% 
+  mutate(mean = round(mean*9,0)) %>% 
+  ggplot(aes(x = mean))+geom_histogram()
+
+
+
+
+dfb %>% ggplot(aes(x = round(dfb$source1_cat,0)))+geom_histogram()
+
+post %>% select(starts_with("sim_rating1")) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(value)) %>% 
+  mutate(mean = round(mean*9,0)) %>% 
+  ggplot(aes(x = mean))+geom_histogram()
+
+
+```
+
+
+
+
+
+
+
+
+
+
+##hierachical bias
+
+```{r, fig.height=10, fig.width=10}
+source(here::here("Assignment 3", "scripts","src.R"))
+
+
+#hist(rprop(10000,10,0.5))
+bias_sd = 10
+bias_mu = 0.8
+
+kappa2_sd = 0.5
+kappa2_mu = 3
+
+kappa_sd = 0.5
+kappa_mu = 3
+
+subs = 10
+ntrials = 100
+
+hier_simple = simple_bayes_hier(bias_sd, bias_mu, kappa2_sd, kappa2_mu, kappa_sd, kappa_mu, ntrials, subs)
+
+
+inner_join(hier_simple[[3]],hier_simple[[2]]) %>% 
+  ggplot(aes(x = source1, y = outcome, col = as.factor(source22)))+
+  geom_line(position = "dodge")+facet_wrap(~name, nrow = 3, ncol = 4)+
+  theme_classic()+
+  geom_richtext(aes(x = 0.2, y = 0.8, label = paste0("bias = ",round(bias,2))), stat = "unique")+
+  geom_richtext(aes(x = 0.2, y = 0.6, label = paste0("kappa = ",round(kappa,2))), stat = "unique")+
+  geom_richtext(aes(x = 0.2, y = 0.4, label = paste0("kappa2 = ",round(kappa2,2))), stat = "unique")
+```
+
+
+```{r, fig.height=10, fig.width=10}
+### fit it
+rating1 = ifelse(as.matrix(round(hier_simple[[1]]$source1_cat,0)) < 1, 1, ifelse( as.matrix(round(hier_simple[[1]]$source1_cat,0)) > 8, 8, as.matrix(round(hier_simple[[1]]$source1_cat,0))))
+
+
+group = ifelse(as.matrix(round(hier_simple[[1]]$source2_cat,0)) < 1, 1, ifelse(as.matrix(round(hier_simple[[1]]$source2_cat,0)) >8 , 8, as.matrix(round(hier_simple[[1]]$source2_cat,0))))
+
+
+
+rating2 = ifelse(as.matrix(round(hier_simple[[1]]$outcome_cat,0)) < 1, 1, ifelse(as.matrix(round(hier_simple[[1]]$outcome_cat,0)) > 8,8, as.matrix(round(hier_simple[[1]]$outcome_cat,0))))
+
+
+data = list(N = length(unique(hier_simple[[3]]$trial)),
+            S = length(unique(hier_simple[[3]]$name)),
+            rating1 = rating1, 
+            group = group, 
+            rating2 = rating2)
+
+mod = cmdstan_model(here::here("Assignment 3","stan","bias_hier_lognormal.stan"))
+
+fit <- mod$sample(
+  data = data,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+)
+
+parameters = c("bias_mu","bias_sd","kappa_mu","kappa_sd", "kappa2_mu", "kappa2_sd")
+
+reals = c(bias_mu = bias_mu, bias_sd = bias_sd, kappa_mu = kappa_mu, kappa_sd = kappa_sd, kappa2_mu = kappa2_mu, kappa2_sd = kappa2_sd)
+
+
+plot_prior_posterior_update(fit, parameters, reals)
+
+
+
+mcmc_trace(fit$draws(parameters))
+
+posterior_cp <- as.array(fit$draws())
+np_cp <- nuts_params(fit)
+
+mcmc_pairs(posterior_cp, np = np_cp, pars = parameters,
+           off_diag_args = list(size = 0.75))
+
+
+
+
+parameters = c("bias", "kappa", "kappa2")
+
+reals = hier_simple[[2]] %>% mutate(trial = 1:10, name = NULL) %>% pivot_longer(cols = - trial) %>%  mutate(name = paste0(as.character(name),"[",as.character(trial), "]"), trial = NULL)
+
+plot_prior_posterior_update_sub(fit, parameters, reals = reals)
+
+mcmc_trace(fit$draws(parameters))
+
+
+
+post = as_draws_df(fit$draws())
+
+post %>% select(starts_with("sim_rating2")) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(value)) %>% 
+  mutate(mean = round(mean*9,0)) %>% 
+  ggplot(aes(x = mean))+geom_histogram()
+
+
+y = rating2
+yrep = as.matrix(post %>% select(starts_with("sim_rating2")) %>% summarize_all(list(mean = ~ mean(.))) %>% pivot_longer(everything()) %>% 
+  mutate(id = as.factor(rep(1:10,each = 100)), name = NULL, trial = rep(1:100,10)) %>% 
+  pivot_wider(id_cols = "trial", names_from = "id",values_from = "value") %>% mutate(trial = NULL))
+
+?pp_check()
+
+
+
+data.frame(pred = yrep[,]*9, real = y[,]) %>% pivot_longer(everything()) %>% ggplot(aes(x = value))+geom_histogram()+facet_wrap(~name, nrow = 2)+theme_classic()
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##weights
+
+
+```{r}
+source(here::here("Assignment 3", "scripts","src.R"))
+
+
+bias = 0.5
+
+kappa = 10
+kappa2 = 100
+w1 = seq(0,1,0.1)
+w2 = seq(0,1,0.1)
+
+
+bias = expand.grid(bias = bias, kappa = kappa, w1 = w1, w2 = w2, kappa2 = kappa2)
+
+bias$id = 1:nrow(bias)
+
+data_list <- split(bias, bias$id)
+
+plan(multisession, workers = 10)
+
+results = future_map(data_list, ~weighted_bayes(.x, 100), .progress = T)
 
 
 df = map_dfr(results, bind_rows)
 
 
+df %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source2_dif)))+geom_line(position = "dodge")+facet_grid(w1~w2,labeller = label_both)+theme_classic()
+
+```
 
 
-df %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source2_dif)))+geom_line(position = "dodge")+facet_grid(precision~bias)+theme_classic()
+
+```{r}
+
+source(here::here("Assignment 3", "scripts","src.R"))
+
+bias = 0.3
+kappa = 10
+kappa2 = 100
+w1 = 0.8
+w2 = 0.2
+bias = data.frame(bias = bias, kappa = kappa, w1 = w1, w2 = w2, kappa2 = kappa2)
+ntrials = 100
+
+dfb = weighted_bayes(bias, ntrials)
+
+data = list(N = nrow(dfb), rating1 = round(dfb$source1_cat,0), group = round(dfb$source2_cat,0), rating2 = round(dfb$outcome_cat,0))
+
+mod = cmdstan_model(here::here("Assignment 3","stan","weighted_bayes.stan"))
+
+fit <- mod$sample(
+  data = data,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+)
+
+
+plot_prior_posterior_update(fit, parameters = c("bias","kappa","w1","w2","kappa2"), reals = c(bias = bias$bias, kappa = bias$kappa, w1 = bias$w1,w2 = bias$w2, kappa2 = bias$kappa2))
+
+
+dfb %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source2_dif)))+geom_line(position = "dodge")+facet_grid(kappa~bias)+theme_classic()
 
 
 
+```
+
+
+
+
+
+## hierachical weights
+```{r}
+source(here::here("Assignment 3", "scripts","src.R"))
+
+
+w1_sd = 10
+w1_mu = 0.2
+
+
+w2_sd = 10
+w2_mu = 0.8
+
+
+bias_sd = 10
+bias_mu = 0.5
+
+kappa2_sd = 0.5
+kappa2_mu = 3
+
+kappa_sd = 0.5
+kappa_mu = 3
+
+
+
+
+
+subs = 10
+ntrials = 100
+
+hier_simple = weighted_bayes_hier(w1_mu, w1_sd, w2_mu, w2_sd, bias_sd, bias_mu, kappa2_sd, kappa2_mu, kappa_sd, kappa_mu, ntrials, subs)
+
+
+inner_join(hier_simple[[3]],hier_simple[[2]]) %>% 
+  ggplot(aes(x = source1, y = outcome, col = as.factor(source22)))+
+  geom_line(position = "dodge")+facet_wrap(~name, nrow = 3, ncol = 4)+
+  theme_classic()+
+  geom_richtext(aes(x = 0.2, y = 0.8, label = paste0("bias = ",round(bias,2))), stat = "unique")+
+  geom_richtext(aes(x = 0.2, y = 0.7, label = paste0("kappa = ",round(kappa,2))), stat = "unique")+
+  geom_richtext(aes(x = 0.2, y = 0.6, label = paste0("kappa2 = ",round(kappa2,2))), stat = "unique")+
+  geom_richtext(aes(x = 0.2, y = 0.5, label = paste0("w1 = ",round(w1,2))), stat = "unique")+
+  geom_richtext(aes(x = 0.2, y = 0.4, label = paste0("w2 = ",round(w2,2))), stat = "unique")
+  
+```
+
+
+```{r}
+
+### fit it
+rating1 = ifelse(as.matrix(round(hier_simple[[1]]$source1_cat,0)) < 1, 1, ifelse( as.matrix(round(hier_simple[[1]]$source1_cat,0)) > 8, 8, as.matrix(round(hier_simple[[1]]$source1_cat,0))))
+
+
+group = ifelse(as.matrix(round(hier_simple[[1]]$source2_cat,0)) < 1, 1, ifelse(as.matrix(round(hier_simple[[1]]$source2_cat,0)) >8 , 8, as.matrix(round(hier_simple[[1]]$source2_cat,0))))
+
+
+
+rating2 = ifelse(as.matrix(round(hier_simple[[1]]$outcome_cat,0)) < 1, 1, ifelse(as.matrix(round(hier_simple[[1]]$outcome_cat,0)) > 8,8, as.matrix(round(hier_simple[[1]]$outcome_cat,0))))
+
+
+data = list(N = length(unique(hier_simple[[3]]$trial)),
+            S = length(unique(hier_simple[[3]]$name)),
+            rating1 = rating1, 
+            group = group, 
+            rating2 = rating2)
+
+
+mod = cmdstan_model(here::here("Assignment 3","stan","weighted_hier_lognormal.stan"))
+
+fit <- mod$sample(
+  data = data,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+)
+
+parameters = c("w1_mu","w1_sd","w2_mu","w2_sd","bias_mu","bias_sd","kappa_mu","kappa_sd", "kappa2_mu", "kappa2_sd")
+
+reals = c(w1_mu = w1_mu, w1_sd = w1_sd, w2_mu = w2_mu, w2_sd = w2_sd, bias_mu = bias_mu, bias_sd = bias_sd, kappa_mu = kappa_mu, kappa_sd = kappa_sd, kappa2_mu = kappa2_mu, kappa2_sd = kappa2_sd)
+
+
+plot_prior_posterior_update(fit, parameters, reals)
+
+
+mcmc_trace(fit$draws(parameters))
+
+posterior_cp <- as.array(fit$draws())
+np_cp <- nuts_params(fit)
+
+mcmc_pairs(posterior_cp, np = np_cp, pars = c("w1_mu","w1_sd","w2_mu","w2_sd","bias_mu","bias_sd"),
+           off_diag_args = list(size = 0.75))
+
+
+
+
+parameters = c("w1","w2","bias", "kappa", "kappa2")
+
+reals = hier_simple[[2]] %>% mutate(trial = 1:10, name = NULL) %>% pivot_longer(cols = - trial) %>%  mutate(name = paste0(as.character(name),"[",as.character(trial), "]"), trial = NULL)
+
+plot_prior_posterior_update_sub(fit, parameters, reals = reals)
+
+
+
+mcmc_trace(fit$draws(parameters))
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+df = read.csv(here::here("Assignment 3","data","cogsci_clean (1).csv"))
+df = df %>% filter(!is.na(Feedback)) %>% group_by(ID) %>% mutate(trial = 1:n())
+
+
+data = list(S = length(unique(df$ID)),
+            N = length(unique(df$trial)),
+            rating1 = as.matrix(df %>% pivot_wider(id_cols = trial, names_from = ID, values_from = FirstRating) %>% mutate(trial= NULL)), 
+            group = as.matrix(df %>% pivot_wider(id_cols = trial, names_from = ID, values_from = GroupRating) %>% mutate(trial= NULL)), 
+            rating2 = as.matrix(df %>% pivot_wider(id_cols = trial, names_from = ID, values_from = SecondRating) %>% mutate(trial= NULL)))
+
+
+mod = cmdstan_model(here::here("Assignment 3","stan","bias_hier_lognormal.stan"))
+
+fit_simple <- mod$sample(
+  data = data,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 500
+)
+
+
+
+parameters = c("bias_mu","bias_sd","kappa_mu","kappa_sd", "kappa2_mu", "kappa2_sd")
+
+mcmc_trace(fit$draws(parameters))
+
+posterior_cp <- as.array(fit$draws())
+np_cp <- nuts_params(fit)
+
+mcmc_pairs(posterior_cp, np = np_cp, pars = parameters,
+           off_diag_args = list(size = 0.75))
+
+
+loo_simple <- fit_simple$loo(save_psis = TRUE, cores = 4)
+
+plot(loo_simple)
+
+
+
+mod = cmdstan_model(here::here("Assignment 3","stan","weighted_hier_lognormal_noncentered.stan"))
+
+fit <- mod$sample(
+  data = data,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 100,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+)
+
+parameters = c("w1_mu","w1_sd","w2_mu","w2_sd","bias_mu","bias_sd","kappa_mu","kappa_sd", "kappa2_mu", "kappa2_sd")
+mcmc_trace(fit$draws(parameters))
+
+
+posterior_cp <- as.array(fit$draws())
+np_cp <- nuts_params(fit)
+
+mcmc_pairs(posterior_cp, np = np_cp, pars = c("w1_mu","w1_sd","w2_mu","w2_sd","bias_mu","bias_sd"),
+           off_diag_args = list(size = 0.75))
+
+
+loo_weighted <- fit$loo(save_psis = TRUE, cores = 4)
+
+plot(loo_weighted)
+
+
+elpd <- tibble(
+  elpd_diff = loosimple$pointwise[, "elpd_loo"] - loo_weighted$pointwise[, "elpd_loo"]) %>% mutate(n = 1:nrow(.))
+
+library(patchwork)
+
+p1 = ggplot(elpd, aes(x = n, y = elpd_diff)) +
+  geom_point(alpha = .1) +
+  #xlim(.5,1.01) +
+  #ylim(-1.5,1.5) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  theme_bw()
+
+
+p2 = ggplot(elpd, aes(x = elpd_diff)) +
+  geom_histogram(alpha = .1) +
+  #xlim(.5,1.01) +
+  #ylim(-1.5,1.5) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
+  theme_bw()+xlab("<--- weighted better   simple better --------->")
+
+p1 +p2
+```
+
+
+```{r model comparison}
+
+
+loosimple = loo(fit_simple$draws(c("log_lik")), r_eff = relative_eff(exp(fit_simple$draws(c("log_lik")))))
+
+looweighted = loo(fit$draws(c("log_lik")), r_eff = relative_eff(exp(fit$draws(c("log_lik")))))
+
+loo_compare(loosimple, looweighted)
+
+
+loo::loo_model_weights(list(loosimple, looweighted))
+
+```
+
+
+
+```{r}
+
+post = as_draws_df(fit$draws())
+
+
+post %>% ggplot(aes(x = bias_mu))+geom_histogram()
 ```
 
 
