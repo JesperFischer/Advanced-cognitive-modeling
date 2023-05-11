@@ -318,6 +318,226 @@ trace+pairs
 sum = fit$summary()
 
 ```
+```{r}
+d = simulated_responses %>% filter(w == "right")
+
+data1 <- list(
+  ntrials = max(unique(d$trial)),
+  nfeatures = 5,
+  nsubjects = agents,
+  cat_one = d$category[1:max(unique(d$trial))],
+  y = as.matrix(d %>% pivot_wider(id_cols = trial, names_from = agent, values_from = sim_response)%>% mutate(trial= NULL)),
+  obs = as.matrix(d %>% filter(agent == 1) %>% select(starts_with("stimulus"))),
+  b = 0.5,
+  w_prior_values = c(1, 1, 1, 1, 1),
+  c_prior_values = c(0, 1)
+)
+
+
+
+model = here::here("assignment 4","stan","hier_gcm_non_centered.stan")
+
+
+mod = cmdstan_model(model)
+
+fit <- mod$sample(
+  data = data1,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 100,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+  )
+
+
+parameter = c("weight[1]","weight[2]","weight[3]","weight[4]","weight[5]", "logit_c_M","logit_c_SD")
+
+
+trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+
+posterior_cp <- as.array(fit$draws())
+
+post = as_draws_df(fit$draws())
+np_cp <- nuts_params(fit)
+
+pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+           off_diag_args = list(size = 0.75))
+
+trace+pairs
+
+
+parameter = c("alpha[1]","alpha[2]","alpha[3]","alpha[4]","alpha[5]", "kappa")
+
+
+trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+
+posterior_cp <- as.array(fit$draws())
+
+post = as_draws_df(fit$draws())
+np_cp <- nuts_params(fit)
+
+pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+           off_diag_args = list(size = 0.75))
+
+
+trace+pairs
+
+
+
+
+sum = fit$summary()
+
+```
+
+```{r}
+d = simulated_responses %>% filter(w == "right")
+
+data1 <- list(
+  ntrials = max(unique(d$trial)),
+  nfeatures = 5,
+  nsubjects = agents,
+  cat_one = d$category[1:max(unique(d$trial))],
+  y = as.matrix(d %>% pivot_wider(id_cols = trial, names_from = agent, values_from = sim_response)%>% mutate(trial= NULL)),
+  obs = as.matrix(d %>% filter(agent == 1) %>% select(starts_with("stimulus"))),
+  b = 0.5,
+  w_prior_values = c(1, 1, 1, 1, 1),
+  c_prior_values = c(0, 1)
+)
+
+
+
+model = here::here("assignment 4","stan","hier_gcm_non_contered_fix_kappa.stan")
+
+
+mod = cmdstan_model(model)
+
+fit <- mod$sample(
+  data = data1,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 100,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+  )
+
+
+parameter = c("weight[1]","weight[2]","weight[3]","weight[4]","weight[5]", "logit_c_M","logit_c_SD")
+
+
+trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+
+posterior_cp <- as.array(fit$draws())
+
+post = as_draws_df(fit$draws())
+np_cp <- nuts_params(fit)
+
+pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+           off_diag_args = list(size = 0.75))
+
+trace+pairs
+
+
+parameter = c("alpha[1]","alpha[2]","alpha[3]","alpha[4]","alpha[5]")
+
+
+trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+
+posterior_cp <- as.array(fit$draws())
+
+post = as_draws_df(fit$draws())
+np_cp <- nuts_params(fit)
+
+pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+           off_diag_args = list(size = 0.75))
+
+
+trace+pairs
+
+
+
+
+sum = fit$summary()
+
+```
+
+
+```{r}
+d = simulated_responses %>% filter(w == "right")
+
+data1 <- list(
+  ntrials = max(unique(d$trial)),
+  nfeatures = 5,
+  nsubjects = agents,
+  cat_one = d$category[1:max(unique(d$trial))],
+  y = as.matrix(d %>% pivot_wider(id_cols = trial, names_from = agent, values_from = sim_response)%>% mutate(trial= NULL)),
+  obs = as.matrix(d %>% filter(agent == 1) %>% select(starts_with("stimulus"))),
+  b = 0.5,
+  w_prior_values = c(1, 1, 1, 1, 1),
+  c_prior_values = c(0, 1)
+)
+
+
+
+model = here::here("assignment 4","stan","hier_gcm_non_contered_fix_kappa_and_alpha.stan")
+
+
+mod = cmdstan_model(model)
+
+fit <- mod$sample(
+  data = data1,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 100,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+  )
+
+
+parameter = c("weight[1]","weight[2]","weight[3]","weight[4]","weight[5]", "logit_c_M","logit_c_SD")
+
+
+trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+
+posterior_cp <- as.array(fit$draws())
+
+post = as_draws_df(fit$draws())
+np_cp <- nuts_params(fit)
+
+pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+           off_diag_args = list(size = 0.75))
+
+trace+pairs
+
+
+parameter = c("alpha[1]","alpha[2]","alpha[3]","alpha[4]","alpha[5]")
+
+
+trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+
+posterior_cp <- as.array(fit$draws())
+
+post = as_draws_df(fit$draws())
+np_cp <- nuts_params(fit)
+
+pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+           off_diag_args = list(size = 0.75))
+
+
+trace+pairs
+
+
+post %>% dplyr::select(starts_with("w_ind")) %>% pivot_longer(everything()) %>% ggplot(aes(x = value))+geom_histogram()+facet_wrap(~name, ncol = 5)+theme_classic()+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
+
+
+sum = fit$summary()
+
+```
 
 
 

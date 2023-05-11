@@ -45,7 +45,7 @@ parameters {
     
     
     simplex[nfeatures] weight;  // simplex means sum(w)=1
-    real<lower=0> kappa;
+    //real<lower=0> kappa;
     array[nsubjects] simplex[nfeatures] w_ind;    // weight parameter (how much attention should be paid to feature 1 related to feature 2 - summing up to 1)
 }
 
@@ -55,7 +55,7 @@ transformed parameters {
     cID = logit_c_Z * logit_c_SD;
   
     // parameter w
-    vector[nfeatures] alpha = kappa * weight;
+    vector[nfeatures] alpha = 10 * weight;
     
     //row_vector[nfeatures] alpha = [1,1,1,1,1];
 
@@ -111,7 +111,7 @@ transformed parameters {
 model {
     // Priors
     
-    target += exponential_lpdf(kappa | 0.1);
+    //target += exponential_lpdf(kappa | 0.1);
     target += dirichlet_lpdf(weight | w_prior_values);
     
     target += normal_lpdf(logit_c_M | c_prior_values[1], c_prior_values[2]);
