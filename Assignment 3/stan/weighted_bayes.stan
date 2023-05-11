@@ -12,8 +12,8 @@ data {
 
 
 transformed data{
-  vector[N] rating11;
-  vector[N] rating22;
+  vector<lower=0, upper = 1>[N] rating11;
+  vector<lower=0, upper = 1>[N] rating22;
   
   rating11 = rating1/9;
   rating22 = rating2/9;
@@ -44,8 +44,8 @@ model {
   target += beta_lpdf(bias |1,1);
   target += beta_lpdf(w1 |1,1);
   target += beta_lpdf(w2 |1,1);
-  target += lognormal_lpdf(kappa |1,0.5);
-  target += lognormal_lpdf(kappa2 |1,0.5);
+  target += lognormal_lpdf(kappa |3,0.5);
+  target += lognormal_lpdf(kappa2 |3,0.5);
   
   
   
@@ -75,8 +75,8 @@ generated quantities{
   prior_w1 = beta_rng(1,1);
   prior_w2 = beta_rng(1,1);
   
-  prior_kappa = lognormal_rng(1,0.5);
-  prior_kappa2 = lognormal_rng(1,0.5);
+  prior_kappa = lognormal_rng(3,0.5);
+  prior_kappa2 = lognormal_rng(3,0.5);
   
     
   sim_groupp = group/9;

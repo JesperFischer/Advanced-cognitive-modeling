@@ -1,0 +1,331 @@
+---
+title: "assignment 4"
+author: "Jesper Fischer Ehmsen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggtext)
+library(cmdstanr)
+library(posterior)
+library(bayesplot)
+library(loo)
+library(ggdist)
+library(brms)
+library(LaplacesDemon)
+library(furrr)
+library(extraDistr)
+library(rstan)
+```
+
+## R Markdown
+
+
+
+```{r}
+source(here::here("assignment 4","scripts","utils.R"))
+
+# simulate responses
+plan(multisession, workers = 10)
+
+
+param_df <- dplyr::tibble(
+  expand_grid(
+    agent = 1:5,
+    c = seq(.1, 2, 0.3),
+    w = c("equal","right","wrong")
+  )
+)
+
+
+
+simulated_responses <- future_pmap_dfr(param_df,
+                                       simulate_responses,
+                                       .options = furrr_options(seed = TRUE), .progress = TRUE)
+
+
+
+library(patchwork)
+p3 <- simulated_responses %>%
+  mutate(w = as.factor(w)) %>%
+  ggplot(aes(trial, performance, group = w, color = w)) +
+  geom_smooth() +
+  theme_bw() +
+  facet_wrap(c ~ .)
+
+p4 <- simulated_responses %>%
+  mutate(c = as.factor(c)) %>%
+  ggplot(aes(trial, performance, group = c, color = c)) +
+  geom_smooth() +
+  theme_bw() +
+  facet_wrap(w ~ .)
+
+p3 + p4
+
+
+
+```
+
+
+```{r}
+simple_checks = function(weight){
+  
+  d <- simulated_responses %>% filter(
+    c == 1.9 & w == weight,
+  )
+  
+  d = d %>% filter(agent %in% unique(agent)[1])
+  
+  data1 <- list(
+    ntrials = nrow(d),
+    nfeatures = 5,
+    cat_one = d$category,
+    y = d$sim_response,
+    obs = as.matrix(d %>% select(starts_with("stimulus"))),
+    b = 0.5,
+    w_prior_values = c(1, 1, 1, 1, 1),
+    c_prior_values = c(0, 1)
+  )
+  
+  
+  
+  model = here::here("assignment 4","stan","gcm.stan")
+  
+  
+  mod = cmdstan_model(model)
+  
+  fit <- mod$sample(
+    data = data1,
+    chains = 4, 
+    parallel_chains = 4,
+    refresh = 100
+    )
+  
+  
+  sum = fit$summary()
+  
+  
+  
+  parameter = c("w[1]","w[2]","w[3]","w[4]","w[5]", "c")
+  
+  if(d$w[1] == "equal"){
+    reals = c(c = 1.9, "w[1]" = 0.2,"w[2]" = 0.2,"w[3]" = 0.2,"w[4]" = 0.2,"w[5]" = 0.2)
+  }else if (d$w[1] == "wrong"){
+    reals = c(c = 1.9, "w[1]" = 0.3,"w[2]" = 0.3,"w[3]" = 0.06,"w[4]" = 0.06,"w[5]" = 0.3)
+  }else if (d$w[1] == "right"){
+    reals = c(c = 1.9, "w[1]" = 0.05,"w[2]" = 0.05,"w[3]" = 0.45,"w[4]" = 0.45,"w[5]" = 0.04)
+  }
+  
+  ppu = plot_prior_posterior_update(fit,parameter,reals)+
+    theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+  
+  post = as_draws_df(fit$draws())
+  
+  trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+  
+  posterior_cp <- as.array(fit$draws())
+  np_cp <- nuts_params(fit)
+  
+  
+  
+  pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+             off_diag_args = list(size = 0.75))
+  
+  library(patchwork)
+  
+  convergence = trace+pairs
+  
+  
+  
+  #red is participants real responses
+  
+  ppc = sum %>% filter(str_detect(variable, "posteriorcorrect")) %>% mutate(simulated = "simulated") %>% 
+    ggplot(aes(x = round(mean,0)))+
+    geom_histogram(data = sum %>% filter(str_detect(variable, "posteriorcorrect")) %>% mutate(simulated = "recovered"), aes(fill = simulated),alpha=0.5)+
+    geom_histogram(data = d %>% mutate(real = "simulated"), aes(x = correct-0.05,fill = real),alpha=0.5)+
+    theme_classic()+
+    ylab("number of correct respondses")+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+scale_x_continuous(" ",breaks = c(0,1), labels = c("Wrong","Right"))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+  
+  
+  return(list(ppu,convergence, ppc))
+}
+
+
+wrong = simple_checks("wrong")
+right = simple_checks("right")
+equal = simple_checks("equal")
+
+
+```
+
+
+```{r}
+
+
+d <- simulate_dirichlet(weights = c(1, 1, 1, 1, 1), kappa = 10, agents = 10)
+
+p1 <- ggplot(d, aes(weight, value, group = agent, color = agent)) +
+  geom_point() +
+  geom_line(linetype = "dashed", alpha = 0.5) +
+  ylim(0,1) +
+  theme_bw()
+
+d <- simulate_dirichlet(weights = c(1, 1, 1, 1, 1), kappa = 1, agents = 10)
+
+p2 <- ggplot(d, aes(weight, value, group = agent, color = agent)) +
+  geom_point() +
+  geom_line(linetype = "dashed", alpha = 0.5) +
+  ylim(0,1) +
+  theme_bw()
+
+p1 + p2
+
+
+```
+
+```{r}
+source(here::here("assignment 4","scripts","utils.R"))
+
+agents <- 5
+scalingM <- 1.8
+scalingSD <- 0.01
+w <- "right"
+kappa <- 100
+
+#simulate_responses(agent = agents, w = w, c = scalingM, weight = weight)
+
+
+
+d = simulate_ml_responses(agent = agents, scalingM = scalingM, scalingSD = scalingSD, w = w, kappa = kappa)
+
+
+d %>% ggplot(aes(trial, performance)) +
+  geom_line(aes(group = agent, color = as.factor(agent))) +
+  theme_bw()
+
+```
+
+
+```{r}
+# do it for all three agents:
+source(here::here("assignment 4","scripts","utils.R"))
+
+
+plan(multisession, workers = 10)
+
+
+param_df <- dplyr::tibble(
+  expand_grid(
+    agents = 5,
+    scalingM = 1.8,
+    scalingSD = 0.01,
+    w = c("equal","right","wrong"),
+    kappa = 100
+  )
+)
+
+
+
+simulated_responses <- future_pmap_dfr(param_df,
+                                       simulate_ml_responses,
+                                       .options = furrr_options(seed = TRUE), .progress = TRUE)
+
+
+simulated_responses %>% ggplot(aes(trial, performance)) +
+  geom_line(aes(group = agent, color = as.factor(agent))) +
+  theme_bw()+facet_wrap(~w)+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
+
+```
+
+
+
+```{r}
+d = simulated_responses %>% filter(w == "right")
+
+data1 <- list(
+  ntrials = max(unique(d$trial)),
+  nfeatures = 5,
+  nsubjects = agents,
+  cat_one = d$category[1:max(unique(d$trial))],
+  y = as.matrix(d %>% pivot_wider(id_cols = trial, names_from = agent, values_from = sim_response)%>% mutate(trial= NULL)),
+  obs = as.matrix(d %>% filter(agent == 1) %>% select(starts_with("stimulus"))),
+  b = 0.5,
+  w_prior_values = c(1, 1, 1, 1, 1),
+  c_prior_values = c(0, 1)
+)
+
+
+
+model = here::here("assignment 4","stan","hier_gcm.stan")
+
+
+mod = cmdstan_model(model)
+
+fit <- mod$sample(
+  data = data1,
+  chains = 4, 
+  parallel_chains = 4,
+  refresh = 100,
+  max_treedepth = 15,
+  adapt_delta = 0.99
+  )
+
+
+parameter = c("weight[1]","weight[2]","weight[3]","weight[4]","weight[5]", "logit_c_M","logit_c_SD")
+
+
+trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+
+posterior_cp <- as.array(fit$draws())
+
+post = as_draws_df(fit$draws())
+np_cp <- nuts_params(fit)
+
+pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+           off_diag_args = list(size = 0.75))
+
+trace+pairs
+
+
+parameter = c("alpha[1]","alpha[2]","alpha[3]","alpha[4]","alpha[5]", "kappa")
+
+
+trace = mcmc_trace(fit$draws(parameter))+theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+    ggtitle(paste0("Agent = ",d$w[1]))
+
+posterior_cp <- as.array(fit$draws())
+
+post = as_draws_df(fit$draws())
+np_cp <- nuts_params(fit)
+
+pairs = mcmc_pairs(post %>% select(parameter), np = np_cp, pars = parameter,
+           off_diag_args = list(size = 0.75))
+
+
+trace+pairs
+
+
+
+
+sum = fit$summary()
+
+```
+
+
+
+
+
+```{r}
+dd = read.csv(here::here("assignment 4","data","AlienData.txt"))
+
+
+```
+

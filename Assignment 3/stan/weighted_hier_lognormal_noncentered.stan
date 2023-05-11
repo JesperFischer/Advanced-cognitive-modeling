@@ -82,20 +82,20 @@ model {
   
   target += beta_proportion_lpdf(bias_mu |0.5,10);
   
-  target += lognormal_lpdf(kappa_mu |0,1);
+  target += lognormal_lpdf(kappa_mu |1,2);
   
-  target += lognormal_lpdf(kappa2_mu |0,1);
+  target += lognormal_lpdf(kappa2_mu |1,2);
   
   
-  target += normal_lpdf(bias_sd |0,0.5)-normal_lccdf(0 | 0,0.5);
+  target += normal_lpdf(bias_sd |0,5)-normal_lccdf(0 | 0,5);
   
-  target += normal_lpdf(kappa_sd |0,0.5)-normal_lccdf(0 | 0,0.5);
+  target += normal_lpdf(kappa_sd |0,5)-normal_lccdf(0 | 0,5);
   
-  target += normal_lpdf(kappa2_sd |0,0.5)-normal_lccdf(0 | 0,0.5);
+  target += normal_lpdf(kappa2_sd |0,5)-normal_lccdf(0 | 0,5);
   
-  target += normal_lpdf(w1_sd |0,0.5)-normal_lccdf(0 | 0,0.5);
+  target += normal_lpdf(w1_sd |0,5)-normal_lccdf(0 | 0,5);
   
-  target += normal_lpdf(w2_sd |0,0.5)-normal_lccdf(0 | 0,0.5);
+  target += normal_lpdf(w2_sd |0,5)-normal_lccdf(0 | 0,5);
   
   
   for(s in 1:S){

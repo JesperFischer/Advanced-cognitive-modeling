@@ -43,54 +43,67 @@ parameters {
   real<lower=0> kappa2_sd;
   
   
-  vector<lower=0, upper = 1>[S] w1;
-  vector<lower=0, upper = 1>[S] w2;
-  vector<lower=0, upper = 1>[S] bias;
-  vector<lower=0>[S] kappa;
-  vector<lower=0>[S] kappa2;
+  vector[S] w1ID_Z;
+  vector[S] w2ID_Z;
+  vector[S] biasID_Z;
+  vector[S] kappaID_Z;
+  vector[S] kappa2ID_Z;
 
 }
 
-
-// The model to be estimated. We model the output
-// 'y' to be normally distributed with mean 'mu'
-// and standard deviation 'sigma'.
-model {
-  target += beta_proportion_lpdf(w1_mu |0.5,10);
+transformed parameters{
+  vector[S] w1ID;
+  vector[S] w2ID;
+  vector[S] biasID;
+  vector[S] kappaID;
+  vector[S] kappa2ID;
+ 
+  biasID = biasID_Z * bias_sd;
+  w1ID = w1ID_Z * w1_sd;
+  w2ID = w2ID_Z * w2_sd;
+  kappaID = kappaID_Z * kappa_sd;
+  kappa2ID = kappa2ID_Z * kappa2_sd;
   
-  target += lognormal_lpdf(w1_sd |1,1);
+}
+  
+model {
+  
+  target += std_normal_lpdf(to_vector(biasID_Z));
+  target += std_normal_lpdf(to_vector(w1ID_Z)); 
+  target += std_normal_lpdf(to_vector(w2ID_Z)); 
+  target += std_normal_lpdf(to_vector(kappaID_Z));
+  target += std_normal_lpdf(to_vector(kappa2ID_Z)); 
+ 
+
+  
+  target += beta_proportion_lpdf(w1_mu |0.5,10);
   
   target += beta_proportion_lpdf(w2_mu |0.5,10);
   
+  target += beta_proportion_lpdf(bias_mu |0.5,10);
+  
   target += lognormal_lpdf(w2_sd |1,1);
   
-  
-  target += beta_proportion_lpdf(bias_mu |0.5,10);
+  target += lognormal_lpdf(w1_sd |1,1);
   
   target += lognormal_lpdf(bias_sd |1,1);
   
-  target += lognormal_lpdf(kappa_mu |1,1);
+  target += lognormal_lpdf(kappa_mu |3,0.5);
   
   target += lognormal_lpdf(kappa_sd |0,1);
   
-  target += lognormal_lpdf(kappa2_mu |1,1);
+  target += lognormal_lpdf(kappa2_mu |3,0.5);
   
   target += lognormal_lpdf(kappa2_sd |0,1);
   
+  
+  
+  
   for(s in 1:S){
-    
-      target += beta_proportion_lpdf(bias[s] | bias_mu,bias_sd);
-      target += beta_proportion_lpdf(w1[s]   | w1_mu,w1_sd);
-      target += beta_proportion_lpdf(w2[s]   | w2_mu,w2_sd);
-      
-      target += lognormal_lpdf(kappa[s]      | kappa_mu,kappa_sd);
-      target += lognormal_lpdf(kappa2[s]     | kappa2_mu,kappa2_sd);
-
-      
     for(i in 1:N){
-      target += beta_proportion_lpdf(rating11[i,s] | bias[s], kappa[s]);
+      target += beta_proportion_lpdf(rating11[i,s] | bias_mu+biasID[s], kappa_mu+kappaID[s]);
       
-      target += beta_proportion_lpdf(rating22[i,s] | inv_logit(w1[s]*logit(rating11[i,s])+w2[s]*logit(groupp[i,s])), kappa2[s]);
+      target += beta_proportion_lpdf(rating22[i,s] | inv_logit(w1_mu+w1ID[s]*logit(rating11[i,s])+w2_mu+w2ID[s]*logit(groupp[i,s])), kappa2_mu+kappa2ID[s]);
     
     }
   }
@@ -99,48 +112,36 @@ model {
 generated quantities{
   real prior_bias_mu;
   real prior_bias_sd;
-  
   real prior_w1_mu;
   real prior_w1_sd;
-  
   real prior_w2_mu;
   real prior_w2_sd;
-  
-  
   real prior_kappa_mu;
   real prior_kappa_sd;
-  
-  
   real prior_kappa2_mu;
   real prior_kappa2_sd;
-  
-  matrix[N, S] log_lik;
-  
-
   vector[S] prior_bias;
   vector[S] prior_w1;
   vector[S] prior_w2;
-  
   vector[S] prior_kappa;
   vector[S] prior_kappa2;  
-  
+  matrix[N, S] log_lik;
 
   prior_bias_mu = beta_proportion_rng(0.5,10);
-  prior_bias_sd = lognormal_rng(0,1);
+  prior_bias_sd = lognormal_rng(-1,1);
   
   prior_w1_mu = beta_proportion_rng(0.5,10);
-  prior_w1_sd = lognormal_rng(0,1);
+  prior_w1_sd = lognormal_rng(-1,1);
   
   prior_w2_mu = beta_proportion_rng(0.5,10);
-  prior_w2_sd = lognormal_rng(0,1);
+  prior_w2_sd = lognormal_rng(-1,1);
   
   
   prior_kappa_mu = lognormal_rng(0,1);
-  prior_kappa_sd = lognormal_rng(0,1);
+  prior_kappa_sd = lognormal_rng(-1,1);
   
   prior_kappa2_mu = lognormal_rng(0,1);
-  prior_kappa2_sd = lognormal_rng(0,1);
-    
+  prior_kappa2_sd = lognormal_rng(-1,1);
     
     
     
@@ -160,14 +161,9 @@ generated quantities{
       
       for(i in 1:N){
         
-        log_lik[i,s] = beta_proportion_lpdf(rating22[i,s] | inv_logit(w1[s]*logit(rating11[i,s])+w2[s]*logit(groupp[i,s])), kappa2[s]);
+        log_lik[i,s] = beta_proportion_lpdf(rating22[i,s] | inv_logit(w1_mu+w1ID[s]*logit(rating11[i,s])+w2_mu+w2ID[s]*logit(groupp[i,s])), kappa2_mu+kappa2ID[s]);
       }
       
   }
-
-
-
-
-
 }
 

@@ -50,7 +50,7 @@ model {
   
   target += beta_proportion_lpdf(bias_mu |0.5,10);
   
-  target += lognormal_lpdf(bias_sd |-1,1);
+  target += lognormal_lpdf(bias_sd |2,0.5);
   
   target += lognormal_lpdf(kappa_mu |0,1);
   
@@ -103,7 +103,7 @@ generated quantities{
   
 
   prior_bias_mu = beta_proportion_rng(0.5,10);
-  prior_bias_sd = lognormal_rng(-1,1);
+  prior_bias_sd = lognormal_rng(2,0.5);
   
   prior_kappa_mu = lognormal_rng(0,1);
   prior_kappa_sd = lognormal_rng(-1,1);

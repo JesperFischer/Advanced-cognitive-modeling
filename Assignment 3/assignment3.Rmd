@@ -33,7 +33,7 @@ When you click the **Knit** button a document will be generated that includes bo
 source(here::here("Assignment 3", "scripts","src.R"))
 
 bias = seq(0.1,0.9,by = 0.1)
-kappa = seq(5,10,by = 5)
+kappa = c(10,50,100)
 kappa2 = 1000
 bias = expand.grid(bias = bias, kappa = kappa, kappa2 = kappa2)
 
@@ -48,7 +48,14 @@ results = future_map(data_list, ~simple_bayes(.x, 100))
 
 df = map_dfr(results, bind_rows)
 
-df %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source2_dif)))+geom_line(position = "dodge")+facet_grid(kappa~bias)+theme_classic()
+df %>% ggplot(aes(x = source1*7+1, y = outcome*7+1, col = as.factor(source2_dif)))+
+  geom_line(position = "dodge")+
+  facet_grid(kappa~bias, labeller = label_both)+
+  theme_classic()+ggtitle("Kappa2 = 1000")+
+  labs(x = "First rating",y = "Second Rating",col = "Group Rating")+
+  scale_x_continuous(breaks = seq(1,8,1))+
+  scale_y_continuous(breaks = seq(1,8,1))+
+  theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
 
 ```
 
@@ -82,20 +89,27 @@ fit <- mod$sample(
 post = as_draws_df(fit$draws())
 
 
-plot_prior_posterior_update(fit, parameters = c("bias","kappa","kappa2"), reals = c(bias = bias$bias, kappa = bias$kappa, kappa2 = bias$kappa2))
+p1 = plot_prior_posterior_update(fit, parameters = c("bias","kappa","kappa2"), reals = c(bias = bias$bias, kappa = bias$kappa, kappa2 = bias$kappa2))
+p1+ theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
 
 
 
-dfb %>% ggplot(aes(x = round(dfb$outcome_cat,0)))+geom_histogram()
+real = dfb %>% ggplot(aes(x = round(dfb$outcome_cat,0)))+geom_histogram()+theme_classic()+xlab("real second rating")+
+    theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
 
-post %>% select(starts_with("sim_rating2")) %>% 
+
+sim = post %>% select(starts_with("sim_rating2")) %>% 
   pivot_longer(everything()) %>% 
   group_by(name) %>% 
   summarize(mean = mean(value)) %>% 
   mutate(mean = round(mean*9,0)) %>% 
-  ggplot(aes(x = mean))+geom_histogram()
+  ggplot(aes(x = mean))+geom_histogram()+theme_classic()+xlab("model prediction of second rating")+
+ theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
 
 
+library(patchwork)
+
+real+sim
 
 
 dfb %>% ggplot(aes(x = round(dfb$source1_cat,0)))+geom_histogram()
@@ -142,12 +156,17 @@ hier_simple = simple_bayes_hier(bias_sd, bias_mu, kappa2_sd, kappa2_mu, kappa_sd
 
 
 inner_join(hier_simple[[3]],hier_simple[[2]]) %>% 
-  ggplot(aes(x = source1, y = outcome, col = as.factor(source22)))+
-  geom_line(position = "dodge")+facet_wrap(~name, nrow = 3, ncol = 4)+
+  ggplot(aes(x = source1*7+1, y = outcome*7+1, col = as.factor(source22)))+
+  geom_line()+
+  facet_wrap(~name, nrow = 3, ncol = 4)+
   theme_classic()+
-  geom_richtext(aes(x = 0.2, y = 0.8, label = paste0("bias = ",round(bias,2))), stat = "unique")+
-  geom_richtext(aes(x = 0.2, y = 0.6, label = paste0("kappa = ",round(kappa,2))), stat = "unique")+
-  geom_richtext(aes(x = 0.2, y = 0.4, label = paste0("kappa2 = ",round(kappa2,2))), stat = "unique")
+  labs(x = "First rating",y = "Second Rating",col = "Group Rating")+
+  scale_x_continuous(breaks = seq(1,8,1))+
+  scale_y_continuous(breaks = seq(1,8,1))+
+  theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+  geom_richtext(aes(x = 4, y = 8, label = paste0("bias = ",round(bias,2))), stat = "unique", size = 6)+
+  geom_richtext(aes(x = 4, y = 5, label = paste0("kappa = ",round(kappa,2))), stat = "unique", size = 6)+
+  geom_richtext(aes(x = 4, y = 2, label = paste0("kappa2 = ",round(kappa2,2))), stat = "unique", size = 6)
 ```
 
 
@@ -185,7 +204,8 @@ parameters = c("bias_mu","bias_sd","kappa_mu","kappa_sd", "kappa2_mu", "kappa2_s
 reals = c(bias_mu = bias_mu, bias_sd = bias_sd, kappa_mu = kappa_mu, kappa_sd = kappa_sd, kappa2_mu = kappa2_mu, kappa2_sd = kappa2_sd)
 
 
-plot_prior_posterior_update(fit, parameters, reals)
+p1 = plot_prior_posterior_update(fit, parameters, reals)
+p1+ theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
 
 
 
@@ -204,7 +224,8 @@ parameters = c("bias", "kappa", "kappa2")
 
 reals = hier_simple[[2]] %>% mutate(trial = 1:10, name = NULL) %>% pivot_longer(cols = - trial) %>%  mutate(name = paste0(as.character(name),"[",as.character(trial), "]"), trial = NULL)
 
-plot_prior_posterior_update_sub(fit, parameters, reals = reals)
+p1 = plot_prior_posterior_update_sub(fit, parameters, reals = reals)
+
 
 mcmc_trace(fit$draws(parameters))
 
@@ -225,29 +246,15 @@ yrep = as.matrix(post %>% select(starts_with("sim_rating2")) %>% summarize_all(l
   mutate(id = as.factor(rep(1:10,each = 100)), name = NULL, trial = rep(1:100,10)) %>% 
   pivot_wider(id_cols = "trial", names_from = "id",values_from = "value") %>% mutate(trial = NULL))
 
-?pp_check()
 
 
+data.frame(pred = round(yrep[,]*9,0), real = y[,]) %>% pivot_longer(everything()) %>% ggplot(aes(x = value))+geom_histogram()+facet_wrap(~name, nrow = 2)+theme_classic()+
+  theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
 
-data.frame(pred = yrep[,]*9, real = y[,]) %>% pivot_longer(everything()) %>% ggplot(aes(x = value))+geom_histogram()+facet_wrap(~name, nrow = 2)+theme_classic()
+
 
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -280,7 +287,16 @@ results = future_map(data_list, ~weighted_bayes(.x, 100), .progress = T)
 df = map_dfr(results, bind_rows)
 
 
-df %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source2_dif)))+geom_line(position = "dodge")+facet_grid(w1~w2,labeller = label_both)+theme_classic()
+df %>% ggplot(aes(x = source1*7+1, y = outcome*7+1, col = as.factor(source2_dif)))+
+  geom_line(position = "dodge")+
+  facet_grid(w1~w2,labeller = label_both)+theme_classic()+ggtitle("Kappa2 = 100 & kappa = 10 & bias = 0.5")+
+  labs(x = "First rating",y = "Second Rating",col = "Group Rating")+
+  scale_x_continuous(breaks = seq(1,8,1))+
+  scale_y_continuous(breaks = seq(1,8,2))+
+  theme(strip.text = element_text(size = 16), axis.text = element_text(size = 18),axis.title = element_text(size = 18), legend.key.size = unit(2, "lines"),
+          legend.text = element_text(size = 14))
+
+
 
 ```
 
@@ -292,7 +308,7 @@ source(here::here("Assignment 3", "scripts","src.R"))
 
 bias = 0.3
 kappa = 10
-kappa2 = 100
+kappa2 = 20
 w1 = 0.8
 w2 = 0.2
 bias = data.frame(bias = bias, kappa = kappa, w1 = w1, w2 = w2, kappa2 = kappa2)
@@ -314,12 +330,8 @@ fit <- mod$sample(
 )
 
 
-plot_prior_posterior_update(fit, parameters = c("bias","kappa","w1","w2","kappa2"), reals = c(bias = bias$bias, kappa = bias$kappa, w1 = bias$w1,w2 = bias$w2, kappa2 = bias$kappa2))
-
-
-dfb %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source2_dif)))+geom_line(position = "dodge")+facet_grid(kappa~bias)+theme_classic()
-
-
+p1 = plot_prior_posterior_update(fit, parameters = c("bias","kappa","w1","w2","kappa2"), reals = c(bias = bias$bias, kappa = bias$kappa, w1 = bias$w1,w2 = bias$w2, kappa2 = bias$kappa2))
+p1 + theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
 
 ```
 
@@ -330,7 +342,6 @@ dfb %>% ggplot(aes(x = source1, y = outcome, col = as.factor(source2_dif)))+geom
 ## hierachical weights
 ```{r}
 source(here::here("Assignment 3", "scripts","src.R"))
-
 
 w1_sd = 10
 w1_mu = 0.2
@@ -349,10 +360,6 @@ kappa2_mu = 3
 kappa_sd = 0.5
 kappa_mu = 3
 
-
-
-
-
 subs = 10
 ntrials = 100
 
@@ -360,14 +367,18 @@ hier_simple = weighted_bayes_hier(w1_mu, w1_sd, w2_mu, w2_sd, bias_sd, bias_mu, 
 
 
 inner_join(hier_simple[[3]],hier_simple[[2]]) %>% 
-  ggplot(aes(x = source1, y = outcome, col = as.factor(source22)))+
+  ggplot(aes(x = source1*7+1, y = outcome*7+1, col = as.factor(source22)))+
   geom_line(position = "dodge")+facet_wrap(~name, nrow = 3, ncol = 4)+
   theme_classic()+
-  geom_richtext(aes(x = 0.2, y = 0.8, label = paste0("bias = ",round(bias,2))), stat = "unique")+
-  geom_richtext(aes(x = 0.2, y = 0.7, label = paste0("kappa = ",round(kappa,2))), stat = "unique")+
-  geom_richtext(aes(x = 0.2, y = 0.6, label = paste0("kappa2 = ",round(kappa2,2))), stat = "unique")+
-  geom_richtext(aes(x = 0.2, y = 0.5, label = paste0("w1 = ",round(w1,2))), stat = "unique")+
-  geom_richtext(aes(x = 0.2, y = 0.4, label = paste0("w2 = ",round(w2,2))), stat = "unique")
+  labs(x = "First rating",y = "Second Rating",col = "Group Rating")+
+  scale_x_continuous(breaks = seq(1,8,1))+
+  scale_y_continuous(breaks = seq(1,8,1))+
+  theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))+
+  geom_richtext(aes(x = 2, y = 8, label = paste0("bias = ",round(bias,2))), stat = "unique", size = 6)+
+  geom_richtext(aes(x = 2, y = 7, label = paste0("kappa = ",round(kappa,2))), stat = "unique", size = 6)+
+  geom_richtext(aes(x = 2, y = 6, label = paste0("kappa2 = ",round(kappa2,2))), stat = "unique", size = 6)+
+  geom_richtext(aes(x = 2, y = 5, label = paste0("w1 = ",round(w1,2))), stat = "unique", size = 6)+
+  geom_richtext(aes(x = 2, y = 4, label = paste0("w2 = ",round(w2,2))), stat = "unique", size = 6)
   
 ```
 
@@ -408,7 +419,8 @@ parameters = c("w1_mu","w1_sd","w2_mu","w2_sd","bias_mu","bias_sd","kappa_mu","k
 reals = c(w1_mu = w1_mu, w1_sd = w1_sd, w2_mu = w2_mu, w2_sd = w2_sd, bias_mu = bias_mu, bias_sd = bias_sd, kappa_mu = kappa_mu, kappa_sd = kappa_sd, kappa2_mu = kappa2_mu, kappa2_sd = kappa2_sd)
 
 
-plot_prior_posterior_update(fit, parameters, reals)
+p1 = plot_prior_posterior_update(fit, parameters, reals)
+p1+ theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
 
 
 mcmc_trace(fit$draws(parameters))
@@ -426,7 +438,7 @@ parameters = c("w1","w2","bias", "kappa", "kappa2")
 
 reals = hier_simple[[2]] %>% mutate(trial = 1:10, name = NULL) %>% pivot_longer(cols = - trial) %>%  mutate(name = paste0(as.character(name),"[",as.character(trial), "]"), trial = NULL)
 
-plot_prior_posterior_update_sub(fit, parameters, reals = reals)
+p1 = plot_prior_posterior_update_sub(fit, parameters, reals = reals)
 
 
 
@@ -471,10 +483,10 @@ fit_simple <- mod$sample(
 
 parameters = c("bias_mu","bias_sd","kappa_mu","kappa_sd", "kappa2_mu", "kappa2_sd")
 
-mcmc_trace(fit$draws(parameters))
+mcmc_trace(fit_simple$draws(parameters))
 
-posterior_cp <- as.array(fit$draws())
-np_cp <- nuts_params(fit)
+posterior_cp <- as.array(fit_simple$draws())
+np_cp <- nuts_params(fit_simple)
 
 mcmc_pairs(posterior_cp, np = np_cp, pars = parameters,
            off_diag_args = list(size = 0.75))
@@ -514,7 +526,7 @@ plot(loo_weighted)
 
 
 elpd <- tibble(
-  elpd_diff = loosimple$pointwise[, "elpd_loo"] - loo_weighted$pointwise[, "elpd_loo"]) %>% mutate(n = 1:nrow(.))
+  elpd_diff = loo_simple$pointwise[, "elpd_loo"] - loo_weighted$pointwise[, "elpd_loo"]) %>% mutate(n = 1:nrow(.))
 
 library(patchwork)
 
@@ -523,7 +535,8 @@ p1 = ggplot(elpd, aes(x = n, y = elpd_diff)) +
   #xlim(.5,1.01) +
   #ylim(-1.5,1.5) +
   geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
-  theme_bw()
+  theme_bw()+ theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
+
 
 
 p2 = ggplot(elpd, aes(x = elpd_diff)) +
@@ -531,7 +544,8 @@ p2 = ggplot(elpd, aes(x = elpd_diff)) +
   #xlim(.5,1.01) +
   #ylim(-1.5,1.5) +
   geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
-  theme_bw()+xlab("<--- weighted better   simple better --------->")
+  theme_bw()+xlab("<--- weighted better   simple better --------->")+ theme(strip.text = element_text(size = 18), axis.text = element_text(size = 18),axis.title = element_text(size = 18))
+
 
 p1 +p2
 ```
@@ -551,14 +565,5 @@ loo::loo_model_weights(list(loosimple, looweighted))
 
 ```
 
-
-
-```{r}
-
-post = as_draws_df(fit$draws())
-
-
-post %>% ggplot(aes(x = bias_mu))+geom_histogram()
-```
 
 
